@@ -88,9 +88,12 @@ module OML4R
       o = opts.dup
       o[:name] = name
       o[:type] ||= :string
-      if o[:type] == :long
+      case o[:type] 
+      when :long
 	$stderr.puts "WARN	:long is deprecated use, :int32 instead"
 	o[:type] = :int32
+      when :boolean
+        o[:type] = :int32  # TODO: Hopefully we can remove this soon
       end
       __def__()[:p_def] << o
       nil
@@ -116,6 +119,9 @@ module OML4R
       a = []
       a << (defs[:seq_no] += 1)
       args.each do |arg|
+        if !!arg == arg # checking for boolean type
+          arg = arg ? 1 : 0
+        end
 	a << arg
       end
       # ...and inject it!
