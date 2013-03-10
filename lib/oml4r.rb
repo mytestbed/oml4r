@@ -36,7 +36,10 @@ module OML4R
   def self.logger=(logger)
     @@logger = logger
   end
-
+  
+  class OML4RExeption < Exception; end
+  class MissingArgumentException < OML4RExeption; end
+  class ArgumentMismatchException < OML4RExeption; end
   #
   # Measurement Point Class
   # Ruby applications using this module should sub-class this MPBase class
@@ -117,7 +120,7 @@ module OML4R
       pdef = defs[:p_def]
       types = defs[:types]
       if args.size != pdef.size
-        raise "OML4R: Size mismatch between the measurement (#{args.size}) and the MP definition (#{pdef.size})!"
+        raise ArgumentMismatchException.new "OML4R: Size mismatch between the measurement (#{args.size}) and the MP definition (#{pdef.size})!"
       end
 
       # Now prepare the measurement...
@@ -192,7 +195,7 @@ module OML4R
 
       # Do some sanity checks...
       unless (mp_name = defs[:name])
-        raise "Missing 'name' declaration for '#{self}'"
+        raise MissingArgumentException.new "Missing 'name' declaration for '#{self}'"
       end
       unless (name_prefix.nil?)
         mp_name = "#{name_prefix}_#{mp_name}"
@@ -246,7 +249,7 @@ module OML4R
     protocol = opts[:protocol] = DEF_PROTOCOL
 
     if  ENV['OML_URL'] || opts[:omlURL] || opts[:url]
-      raise 'ERROR      neither OML_URL, :omlURL nor :url are valid. Do you mean OML_COLLECT or :omlCollect?'
+      raise MissingArgumentException.new 'neither OML_URL, :omlURL nor :url are valid. Do you mean OML_COLLECT or :omlCollect?'
     end
     if ENV['OML_SERVER'] || opts[:omlServer]
         OML4R.logger.warn "opts[:omlServer] and ENV['OML_SERVER'] are getting deprecated; please use opts[:collect] or ENV['OML_COLLECT'] instead"
@@ -287,20 +290,33 @@ module OML4R
     rest = op.parse(argv)
     return if noop
 
-    unless domain && nodeID && appName
-      raise 'OML4R: Missing values for parameters :domain (--oml-domain), :nodeID (--oml-id), or :appName (in code)!'
+    unless nodeID
+      begin
+        # Create a default nodeID by concatinating the local hostname with the process ID
+        nodeID = "#{Socket.gethostbyname(Socket.gethostname)[0]}-#{Process.pid}"
+      rescue Exception
+        raise MissingArgumentException.new 'OML4R: Missing values for parameter :nodeID (--oml-id)'        
+      end
+    end
+    
+    unless domain && appName
+      raise MissingArgumentException.new 'OML4R: Missing values for parameters :domain (--oml-domain), :nodeID (--oml-id), or :appName (in code)!'
     end
 
     # Set a default collection URI if nothing has been specified
     omlCollectUri ||= "file:#{appName}_#{nodeID}_#{domain}_#{Time.now.strftime("%Y-%m-%dt%H.%M.%S%z")}"
 
-    Channel.create(:default, omlCollectUri) if omlCollectUri
+    create_channel(:default, omlCollectUri) if omlCollectUri
 
     # Handle the defined Measurement Points
     startTime = Time.now
     Channel.init_all(domain, nodeID, appName, startTime, protocol)
     OML4R.logger.info "Collection URI is #{omlCollectUri}"
     rest || []
+  end
+  
+  def self.create_channel(name, url)
+    Channel.create(name, url)
   end
 
   #
@@ -328,7 +344,7 @@ module OML4R
       key = "#{name}:#{domain}"
       if channel = @@channels[key]
         if url != channel.url
-          raise "OML4R: Channel '#{name}' already defined with different url"
+          raise OML4RException.new "OML4R: Channel '#{name}' already defined with different url"
         end
         return channel
       end
@@ -350,7 +366,7 @@ module OML4R
         port ||= DEF_SERVER_PORT
         out = TCPSocket.new(host, port)
       else
-        raise "OML4R: Unknown transport in server url '#{url}'"
+        raise OML4RException.new "OML4R: Unknown transport in server url '#{url}'"
       end
       out
     end
@@ -364,7 +380,7 @@ module OML4R
             return self._create(key, domain, dc.url)
           end
         end
-        raise "OML4R: Unknown channel '#{name}'"
+        raise OML4RException.new "OML4R: Unknown channel '#{name}'"
       end
       @@channels[key]
     end
@@ -437,7 +453,7 @@ module OML4R
       header << "protocol: #{@protocol}"
       header << "content: text"
       d = (@domain == :default) ? @@default_domain : @domain
-      raise "Missing domain name" unless d
+      raise MissingArgumentException.new "Missing domain name" unless d
       case @protocol || OML4R::DEF_PROTOCOL
       when 3
         header << "experiment-id: #{d}"
@@ -460,7 +476,7 @@ module OML4R
         end
         
       else
-        raise "Unsupported protocol #{@protocol}"
+        raise OML4RException.new "Unsupported protocol #{@protocol}"
       end
       stream.puts header
     end

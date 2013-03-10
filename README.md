@@ -31,42 +31,50 @@ Usage
 
 ### Initialisation, Injection and Tear-down
 
-    OML4R::init(ARGV, {
+    OML4R::init(ARGV, 
     	:appName => 'oml4rSimpleExample',
-    	:expID => 'foo',
+    	:domain => 'foo', 
     	:nodeID => 'n1',
-    	:omlServer => 'file:-'}
     )
-    MyMP.inject("hello", 13, 37.)
+    MyMP.inject("hello", 13, 37.1)
     OML4R::close()
+    
+### Multiple Channels
+
+It is sometimes desirable to send different measurement points to different collectors. OML4R supports
+this with the 'channel' abstraction.
+
+    class A_MP < OML4R::MPBase
+      name :a
+      channel :default
+    
+      param :a_val, :type => :int32
+    end
+
+    class B_MP < OML4R::MPBase
+      name :b
+      channel :archive
+      channel :default
+    
+      param :b_val, :type => :int32
+    end
+    
+    OML4R::init(ARGV, 
+      :appName => 'doubleAgent',
+      :domain => 'foo' 
+    )
+    OML4R::create_channel(:archive, 'file:/tmp/archive.log')    
+
+Setting the command line flag '--oml-collect' will define a ':default' channel. Any additional channels
+need to be declared with 'OML4R::create_channel' which takes two arguments, the name of the channel
+and the destination for the measurement stream. The above example defines an 'archive' channel
+which is being collected in the local '/tmp/archive.log' file.
+
+Please note that by declaring a specific channel, every MP needs at least one channel declaration.
 
 ### Real example
 
 See examples files oml4r-simple-example.rb and oml4r-wlanconfig.rb.
-
-
-License
--------
-
-Copyright 2009-2013 National ICT Australia (NICTA), Australia
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 
 [oml-text]: http://oml.mytestbed.net/projects/oml/wiki/Description_of_Text_protocol
 [oml4r-rubygem]: https://rubygems.org/gems/oml4r/
