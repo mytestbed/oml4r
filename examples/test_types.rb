@@ -4,49 +4,38 @@
 # By downloading or using this software you accept the terms and the liability disclaimer in the License.
 # ------------------
 #
-# = oml4r-simple-example.rb
+# = test_types.rb
 #
 # == Description
 #
-# A very simple straightforward example of OML4R.
+# Testing blobs and long strings. Should really go into a test suite.
 #
 require 'rubygems'
 require 'oml4r'
 
 # Define your own Measurement Points
-class SinMP < OML4R::MPBase
-  name :sin
+class TestMP < OML4R::MPBase
+  name :test
   #channel :default
 
-  param :label
-  param :angle, :type => :int32
-  param :value, :type => :double
-end
-
-class CosMP < OML4R::MPBase
-  name :cos
-  # channel :ch1
-  # channel :default
-
-  param :label
-  param :value, :type => :double
+  param :text
+  param :blob, :type => :blob
 end
 
 # Initialise the OML4R module for your application
-opts = {:appName => 'oml4rSimpleExample',
+opts = {:appName => 'test_types',
   :domain => 'foo', :nodeID => 'n1',
-  :collect => 'file:-'} # Server could also be tcp:host:port
-#  OML4R::create_channel(:default, 'file:-')    
+  :collect => 'file:-'} 
 
 OML4R::init(ARGV, opts)
 
 # Now collect and inject some measurements
-500.times do |i|
-  sleep 0.5
-  angle = 15 * i
-  SinMP.inject("label_#{angle}", angle, Math.sin(angle))
-  CosMP.inject("label_#{angle}", Math.cos(angle))    
-end
+blob = ""
+30.times {|i| blob << i}
+TestMP.inject(%{tab new line
+another two
+
+and that's it}, blob)
 
 # Don't forget to close when you are finished
 OML4R::close()
