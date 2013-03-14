@@ -293,8 +293,19 @@ module OML4R
     unless nodeID
       begin
         # Create a default nodeID by concatinating the local hostname with the process ID
-        nodeID = "#{Socket.gethostbyname(Socket.gethostname)[0]}-#{Process.pid}"
-      rescue Exception
+        hostname = nil
+        begin 
+          hostname = Socket.gethostbyname(Socket.gethostname)[0]
+        rescue Exception 
+          begin
+            hostname = `hostname`
+          rescue Exception; end           
+        end
+        if hostname
+          nodeID = "#{hostname}-#{Process.pid}"
+        end
+      end
+      unless nodeID
         raise MissingArgumentException.new 'OML4R: Missing values for parameter :nodeID (--oml-id)'        
       end
     end
@@ -467,12 +478,12 @@ module OML4R
       when 4
         i = 0
         header << ""        
-        header << "0\t0\t#{i += 1}\texperiment-id\t#{d}"
-        header << "0\t0\t#{i += 1}\tstart_time\t#{@startTime.tv_sec}"
-        header << "0\t0\t#{i += 1}\tsender-id\t#{@nodeID}"
-        header << "0\t0\t#{i += 1}\tapp-name\t#{@appName}"
+        header << "0\t0\t#{i += 1}\t.\texperiment-id\t#{d}"
+        header << "0\t0\t#{i += 1}\t.\tstart_time\t#{@startTime.tv_sec}"
+        header << "0\t0\t#{i += 1}\t.\tsender-id\t#{@nodeID}"
+        header << "0\t0\t#{i += 1}\t.\tapp-name\t#{@appName}"
         @schemas.each do |s|
-          header << "0\t0\t#{i += 1}\tschema\t#{s}"
+          header << "0\t0\t#{i += 1}\t.\tschema\t#{s}"
         end
         
       else
