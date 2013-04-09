@@ -131,7 +131,7 @@ module OML4R
         case types[i]
         when :string
           # Escape tabs and newlines
-          arg = arg.gsub("\n", "\\n").gsub("\t", "\\t")
+          arg = arg.to_s.gsub("\n", "\\n").gsub("\t", "\\t")
         when :boolean
           # boolean
           arg = arg ? 1 : 0
