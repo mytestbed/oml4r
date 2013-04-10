@@ -1,8 +1,8 @@
-OML4R: Native OML Implementation in Ruby			{#oml4rdoc}
+OML4R: Native OML Implementation in Ruby
 ========================================
 
 This is a simple client library for OML which does not use liboml2 and its
-filters, but connects directly to the server using the text protocol [oml-text].
+filters, but connects directly to the server using the text protocol [omsp].
 User can use this library to create ruby applications which can send
 measurement to the OML collection server. A simple example on how to use
 this library is attached at the end of this file. Another example can be
@@ -31,9 +31,9 @@ Usage
 
 ### Initialisation, Injection and Tear-down
 
-    OML4R::init(ARGV, 
+    OML4R::init(ARGV,
     	:appName => 'oml4rSimpleExample',
-    	:domain => 'foo', 
+    	:domain => 'foo',
     	:nodeID => 'n1',
     )
     MyMP.inject("hello", 13, 37.1)
@@ -59,11 +59,11 @@ this with the 'channel' abstraction.
       param :b_val, :type => :int32
     end
     
-    OML4R::init(ARGV, 
+    OML4R::init(ARGV,
       :appName => 'doubleAgent',
-      :domain => 'foo' 
+      :domain => 'foo'
     )
-    OML4R::create_channel(:archive, 'file:/tmp/archive.log')    
+    OML4R::create_channel(:archive, 'file:/tmp/archive.log')
 
 Setting the command line flag '--oml-collect' will define a ':default' channel. Any additional channels
 need to be declared with 'OML4R::create_channel' which takes two arguments, the name of the channel
@@ -76,5 +76,5 @@ Please note that by declaring a specific channel, every MP needs at least one ch
 
 See examples files oml4r-simple-example.rb and oml4r-wlanconfig.rb.
 
-[oml-text]: http://oml.mytestbed.net/projects/oml/wiki/Description_of_Text_protocol
+[omsp]: http://oml.mytestbed.net/projects/oml/wiki/OML_Measurement_Stream_Protocol_(OMSP)_Specification
 [oml4r-rubygem]: https://rubygems.org/gems/oml4r/
