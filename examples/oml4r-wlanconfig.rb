@@ -75,7 +75,7 @@ class Wrapper
 
     # Now call the Init of OML4R with the command line arguments (args)
     # and a block defining the arguments specific to this wrapper
-    OML4R::init(args, :appName => "#{APPNAME}_wrapper") { |argParser|
+    OML4R::init(args, :appName => "#{APPNAME}_wrapper", :domain => 'foo', :collect => 'file:-') { |argParser|
       argParser.banner = "\nExecute a wrapper around #{APPNAME}\n" +
 	"Use -h or --help for a list of options\n\n" 
       argParser.on("-i", "--interface IFNAME", "Name of Interface to monitor") { |name| @interface = name }
