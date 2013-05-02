@@ -227,14 +227,14 @@ module OML4R
     OML4R#{VERSION_STRING} [#{COPYRIGHT}")
 
     if d = (ENV['OML_EXP_ID'] || opts[:expID])
-      # XXX: It is still too early to complain about that. We need to be sure
+      # NOTE: It is still too early to complain about that. We need to be sure
       # of the nomenclature before making user-visible changes.
       OML4R.logger.warn "opts[:expID] and ENV['OML_EXP_ID'] are getting deprecated; please use opts[:domain] or ENV['OML_DOMAIN']  instead"
       opts[:domain] ||= d
     end
     domain ||= ENV['OML_DOMAIN'] || opts[:domain]
 
-    # XXX: Same as above; here, though, :id might actually be the way to go; or
+    # TODO: Same as above; here, though, :id might actually be the way to go; or
     # perhaps instId?
     #if opts[:id]
     #  raise 'OML4R: :id is not a valid option. Do you mean :nodeID?'
@@ -314,15 +314,19 @@ module OML4R
       raise MissingArgumentException.new 'OML4R: Missing values for parameters :domain (--oml-domain), :nodeID (--oml-id), or :appName (in code)!'
     end
 
-    # Set a default collection URI if nothing has been specified
-    omlCollectUri ||= "file:#{appName}_#{nodeID}_#{domain}_#{Time.now.strftime("%Y-%m-%dt%H.%M.%S%z")}"
 
-    create_channel(:default, omlCollectUri) if omlCollectUri
+    unless opts[:create_default_channel] == false
+      # Set a default collection URI if nothing has been specified
+      unless omlCollectUri
+        omlCollectUri = "file:#{appName}_#{nodeID}_#{domain}_#{Time.now.strftime("%Y-%m-%dt%H.%M.%S%z")}"
+        OML4R.logger.info "Collection URI is #{omlCollectUri}"
+      end
+      create_channel(:default, omlCollectUri) 
+    end
 
     # Handle the defined Measurement Points
     startTime = Time.now
     Channel.init_all(domain, nodeID, appName, startTime, protocol)
-    OML4R.logger.info "Collection URI is #{omlCollectUri}"
     rest || []
   end
   
@@ -359,28 +363,15 @@ module OML4R
         end
         return channel
       end
-      return self._create(key, domain, url)
+      #return self._create(key, domain, url)
+      return @@channels[key] = self.new(url, domain)
     end
 
-    def self._create(key, domain, url)
-      out = _connect(url)
-      @@channels[key] = self.new(url, domain, out)
-    end
+    # def self._create(key, domain, url)
+      # out = _connect(url)
+      # @@channels[key] = self.new(url, domain, out)
+    # end
 
-    def self._connect(url)
-      if url.start_with? 'file:'
-        proto, fname = url.split(':')
-        out = (fname == '-' ? $stdout : File.open(fname, "w+"))
-      elsif url.start_with? 'tcp:'
-        #tcp:norbit.npc.nicta.com.au:3003
-        proto, host, port = url.split(':')
-        port ||= DEF_SERVER_PORT
-        out = TCPSocket.new(host, port)
-      else
-        raise OML4RException.new "OML4R: Unknown transport in server url '#{url}'"
-      end
-      out
-    end
 
     def self.[](name = :default, domain = :default)
       key = "#{name}:#{domain}"
@@ -398,6 +389,10 @@ module OML4R
 
     def self.init_all(domain, nodeID, appName, startTime, protocol)
       @@default_domain = domain
+      @@nodeID = nodeID
+      @@appName = appName
+      @@startTime = startTime
+      @@protocol = protocol
 
       MPBase.__freeze__(appName, startTime)
 
@@ -420,6 +415,14 @@ module OML4R
 
     attr_reader :url
 
+    def url=(url)
+      return if @url == url
+      if @out
+        raise "Can't change channel's URL when it is already connected"
+      end
+      @url = url
+    end
+    
     def send_schema(mp_name, pdefs) # defs[:p_def]
       # Build the schema and send it
       @index += 1
@@ -439,6 +442,7 @@ module OML4R
 
     def init(nodeID, appName, startTime, protocol)
       @nodeID, @appName, @startTime, @protocol = nodeID, appName, startTime, protocol
+      @out = _connect(@url)
     end
 
     def close()
@@ -447,15 +451,29 @@ module OML4R
     end
 
     protected
-    def initialize(url, domain, out_channel)
+    def initialize(url, domain)
       @domain = domain
       @url = url
-      @out = out_channel
       @index = 0
       @schemas = []
       @header_sent = false
       @queue = Queue.new
       start_runner
+    end
+
+    def _connect(url)
+      if url.start_with? 'file:'
+        proto, fname = url.split(':')
+        out = (fname == '-' ? $stdout : File.open(fname, "w+"))
+      elsif url.start_with? 'tcp:'
+        #tcp:norbit.npc.nicta.com.au:3003
+        proto, host, port = url.split(':')
+        port ||= DEF_SERVER_PORT
+        out = TCPSocket.new(host, port)
+      else
+        raise OML4RException.new "OML4R: Unknown transport in server url '#{url}'"
+      end
+      @out = out
     end
 
 
