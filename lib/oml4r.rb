@@ -256,7 +256,7 @@ module OML4R
     end
     omlCollectUri = ENV['OML_COLLECT'] || ENV['OML_SERVER'] || opts[:collect] || opts[:omlServer]
     noop = opts[:noop] || false
-
+    omlConfigFile = nil
 
     # Create a new Parser for the command line
     op = OptionParser.new
@@ -269,6 +269,7 @@ module OML4R
     op.on("--oml-protocol p", "Protocol number [#{OML4R::DEF_PROTOCOL}]") { |l| protocol = l.to_i }
     op.on("--oml-log-level l", "Log level used (info: 1 .. debug: 0)") { |l| OML4R.logger.level = l.to_i }
     op.on("--oml-noop", "Do not collect measurements") { noop = true }
+    op.on("--oml-config file", "File holding OML configuration parameters") { |f| omlConfigFile = f }
     op.on("--oml-exp-id domain", "Obsolescent equivalent to --oml-domain domain") { |name|
       domain = name
       OML4R.logger.warn "Option --oml-exp-id is getting deprecated; please use '--oml-domain #{domain}' instead"
@@ -289,6 +290,20 @@ module OML4R
     OML4R.logger.debug "ARGV:>>> #{argv.inspect}"
     rest = op.parse(argv)
     return if noop
+
+    # Parameters in OML config file takes precedence
+    unless omlConfigFile.nil?
+      f = File.open(omlConfigFile, 'r')
+      f.each_line do |l|
+        d = l[/.*experiment='([^']*)/,1]
+        domain = d if d
+        i = l[/.*id='([^']*)/,1]
+        nodeID = i if i
+        u = l[/.*url='([^']*)/,1]
+        omlCollectUri = u if u
+        end
+      f.close
+    end
 
     unless nodeID
       begin
