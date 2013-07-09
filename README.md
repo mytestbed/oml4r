@@ -78,3 +78,8 @@ See examples files oml4r-simple-example.rb and oml4r-wlanconfig.rb.
 
 [oml-text]: http://oml.mytestbed.net/projects/oml/wiki/Description_of_Text_protocol
 [oml4r-rubygem]: https://rubygems.org/gems/oml4r/
+
+License
+-------
+
+Please see LICENSE.txt
