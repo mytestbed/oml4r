@@ -6,7 +6,7 @@ filters, but connects directly to the server using the text protocol [oml-text].
 User can use this library to create ruby applications which can send
 measurement to the OML collection server. A simple example on how to use
 this library is attached at the end of this file. Another example can be
-found in the file oml4r-example.rb
+found in the file oml4r-example.rb .
 
 Installation
 ------------
