@@ -10,14 +10,14 @@ require 'oml4r'
 require 'parseconfig'
 
 port = 9089
-interval = 3
+interval = 10
 neuca_file = "/tmp/neuca-user-data.txt"
 
 abort "Could not run 'neuca-user-data'" if !`neuca-user-data > #{neuca_file}`
 neuca_user_data = ParseConfig.new(neuca_file)['global']
 
 class MyMP < OML4R::MPBase
-  name :Beacon
+  name :received
   param :actor_id, :type => :string
   param :slice_id, :type => :string
   param :reservation_id, :type => :string
