@@ -3,6 +3,13 @@
 # You should find a copy of the License in LICENSE.TXT or at http://opensource.org/licenses/MIT.
 # By downloading or using this software you accept the terms and the liability disclaimer in the License.
 # ------------------
+#
+# = oml_outputter.rb
+#
+# == Description
+#
+# Log4r outputter which turn logging events into an OML stream
+#
 
 require 'log4r/outputter/outputter'
 require 'oml4r'
@@ -22,7 +29,6 @@ module Log4r
       param :tracer
       param :data
     end
-
 
     # Initialise an outputter which turns logging messages
     # into an OML stream
