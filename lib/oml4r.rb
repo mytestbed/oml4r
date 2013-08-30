@@ -37,9 +37,9 @@ module OML4R
     @@logger = logger
   end
 
-  class OML4RExeption < Exception; end
-  class MissingArgumentException < OML4RExeption; end
-  class ArgumentMismatchException < OML4RExeption; end
+  class OML4RException < Exception; end
+  class MissingArgumentException < OML4RException; end
+  class ArgumentMismatchException < OML4RException; end
   #
   # Measurement Point Class
   # Ruby applications using this module should sub-class this MPBase class
@@ -228,8 +228,14 @@ module OML4R
   # It will then connect to the OML server (if requested on the command line), and
   # send the initial instruction to setup the database and the tables for each MPs.
   #
-  # - argv = the Array of command line arguments from the calling Ruby application
-  # - & block = a block which defines the additional application-specific arguments
+  # param argv = the Array of command line arguments from the calling Ruby application
+  # param opts
+  # opts [String]  :domain
+  # opts [String]  :nodeID
+  # opts [String]  :appName
+  # opts [Integer] :protocol
+  # opts [Proc] :afterParse
+  # param block = a block which defines the additional application-specific arguments
   #
   def self.init(argv, opts = {}, &block)
     OML4R#{VERSION_STRING} [#{COPYRIGHT}")
@@ -240,21 +246,21 @@ module OML4R
       OML4R.logger.warn "opts[:expID] and ENV['OML_EXP_ID'] are getting deprecated; please use opts[:domain] or ENV['OML_DOMAIN']  instead"
       opts[:domain] ||= d
     end
-    domain ||= ENV['OML_DOMAIN'] || opts[:domain]
+    opts[:domain] = ENV['OML_DOMAIN'] || opts[:domain]
 
     # TODO: Same as above; here, though, :id might actually be the way to go; or
     # perhaps instId?
     #if opts[:id]
     #  raise 'OML4R: :id is not a valid option. Do you mean :nodeID?'
     #end
-    nodeID = ENV['OML_NAME'] || opts[:nodeID]  ||  opts[:id] || ENV['OML_ID']
+    opts[:nodeID]  = ENV['OML_NAME'] || opts[:nodeID]  ||  opts[:id] || ENV['OML_ID']
     #
     # XXX: Same again; also, this is the responsibility of the developer, not the user
     #if opts[:app]
     #  raise 'OML4R: :app is not a valid option. Do you mean :appName?'
     #end
-    appName = opts[:appName] || opts[:app]
-    protocol = opts[:protocol] = DEF_PROTOCOL
+    opts[:appName] ||= opts[:app]
+    opts[:protocol] ||= DEF_PROTOCOL
 
     if  ENV['OML_URL'] || opts[:omlURL] || opts[:url]
       raise MissingArgumentException.new 'neither OML_URL, :omlURL nor :url are valid. Do you mean OML_COLLECT or :omlCollect?'
@@ -262,7 +268,7 @@ module OML4R
     if ENV['OML_SERVER'] || opts[:omlServer]
         OML4R.logger.warn "opts[:omlServer] and ENV['OML_SERVER'] are getting deprecated; please use opts[:collect] or ENV['OML_COLLECT'] instead"
     end
-    omlCollectUri = ENV['OML_COLLECT'] || ENV['OML_SERVER'] || opts[:collect] || opts[:omlServer]
+    opts[:collect] = ENV['OML_COLLECT'] || ENV['OML_SERVER'] || opts[:collect] || opts[:omlServer]
     noop = opts[:noop] || false
 
     if argv
@@ -271,10 +277,10 @@ module OML4R
       # Include the definition of application's specific arguments
       yield(op) if block
       # Include the definition of OML specific arguments
-      op.on("--oml-id id", "Name to identify this app instance [#{nodeID || 'undefined'}]") { |name| nodeID = name }
-      op.on("--oml-domain domain", "Name of experimental domain [#{domain || 'undefined'}] *EXPERIMENTAL*") { |name| domain = name }
-      op.on("--oml-collect uri", "URI of server to send measurements to") { |u|  omlCollectUri = u }
-      op.on("--oml-protocol p", "Protocol number [#{OML4R::DEF_PROTOCOL}]") { |l| protocol = l.to_i }
+      op.on("--oml-id id", "Name to identify this app instance [#{opts[:nodeID] || 'undefined'}]") { |name| opts[:nodeID] = name }
+      op.on("--oml-domain domain", "Name of experimental domain [#{opts[:domain] || 'undefined'}] *EXPERIMENTAL*") { |name| opts[:domain] = name }
+      op.on("--oml-collect uri", "URI of server to send measurements to") { |u|  opts[:omlCollectUri] = u }
+      op.on("--oml-protocol p", "Protocol number [#{OML4R::DEF_PROTOCOL}]") { |l| opts[:protocol] = l.to_i }
       op.on("--oml-log-level l", "Log level used (info: 1 .. debug: 0)") { |l| OML4R.logger.level = l.to_i }
       op.on("--oml-noop", "Do not collect measurements") { noop = true }
       op.on("--oml-exp-id domain", "Obsolescent equivalent to --oml-domain domain") { |name|
@@ -282,12 +288,12 @@ module OML4R
         OML4R.logger.warn "Option --oml-exp-id is getting deprecated; please use '--oml-domain #{domain}' instead"
       }
       op.on("--oml-file localPath", "Obsolescent equivalent to --oml-collect file:localPath") { |name|
-        omlCollectUri = "file:#{name}"
-        OML4R.logger.warn "Option --oml-file is getting deprecated; please use '--oml-collect #{omlCollectUri}' instead"
+        opts[:omlCollectUri] = "file:#{name}"
+        OML4R.logger.warn "Option --oml-file is getting deprecated; please use '--oml-collect #{opts[:omlCollectUri]}' instead"
       }
       op.on("--oml-server uri", "Obsolescent equivalent to --oml-collect uri") {|u|
-        omlCollectUri = u
-        OML4R.logger.warn "Option --oml-server is getting deprecated; please use '--oml-collect #{omlCollectUri}' instead"
+        opts[:omlCollectUri] = "tcp:#{u}"
+        OML4R.logger.warn "Option --oml-server is getting deprecated; please use '--oml-collect #{opts[:omlCollectUri]}' instead"
       }
       op.on_tail("--oml-help", "Show this message") { $stderr.puts op; exit }
       # XXX: This should be set by the application writer, not the command line
@@ -296,46 +302,52 @@ module OML4R
       # Now parse the command line
       OML4R.logger.debug "ARGV: #{argv.inspect}"
       rest = op.parse(argv)
+      if opts[:afterParse]
+        # give the app a chance to fix missing parameters
+        opts[:afterParse].call(opts)
+      end
       return if noop
     end
 
-    unless nodeID
+    unless opts[:nodeID]
       begin
         # Create a default nodeID by concatinating the local hostname with the process ID
         hostname = nil
         begin
-          hostname = Socket.gethostbyname(Socket.gethostname)[0]
+          #hostname = Socket.gethostbyname(Socket.gethostname)[0]
+          hostname = Socket.gethostname
         rescue Exception
           begin
-            hostname = `hostname`
+            hostname = (`hostname`).chop
           rescue Exception; end
         end
         if hostname
-          nodeID = "#{hostname}-#{Process.pid}"
+          opts[:nodeID] = "#{hostname}-#{Process.pid}"
         end
       end
-      unless nodeID
+      unless opts[:nodeID]
         raise MissingArgumentException.new 'OML4R: Missing values for parameter :nodeID (--oml-id)'
       end
     end
 
-    unless domain && appName
+    unless opts[:domain] && opts[:appName]
       raise MissingArgumentException.new 'OML4R: Missing values for parameters :domain (--oml-domain), :nodeID (--oml-id), or :appName (in code)!'
     end
 
-
     unless opts[:create_default_channel] == false
       # Set a default collection URI if nothing has been specified
-      unless omlCollectUri
-        omlCollectUri = "file:#{appName}_#{nodeID}_#{domain}_#{Time.now.strftime("%Y-%m-%dt%H.%M.%S%z")}"
-        OML4R.logger.info "Collection URI is #{omlCollectUri}"
+      unless opts[:omlCollectUri]
+        require 'time'
+        opts[:omlCollectUri] = "file:#{opts[:appName]}_#{Time.now.iso8601}"
+        #opts[:omlCollectUri] = "file:-"
+        OML4R.logger.info "Collection URI is #{opts[:omlCollectUri]}"
       end
-      create_channel(:default, omlCollectUri)
+      create_channel(:default, opts[:omlCollectUri])
     end
 
     # Handle the defined Measurement Points
     startTime = Time.now
-    Channel.init_all(domain, nodeID, appName, startTime, protocol)
+    Channel.init_all(opts[:domain], opts[:nodeID], opts[:appName], startTime, opts[:protocol])
     rest || []
   end
 
@@ -375,12 +387,6 @@ module OML4R
       #return self._create(key, domain, url)
       return @@channels[key] = self.new(url, domain)
     end
-
-    # def self._create(key, domain, url)
-      # out = _connect(url)
-      # @@channels[key] = self.new(url, domain, out)
-    # end
-
 
     def self.[](name = :default, domain = :default)
       key = "#{name}:#{domain}"
@@ -566,7 +572,7 @@ module OML4R
         loop do
           sleep 5
           begin
-            @out = self.class._connect(@url)
+            @out = _connect(@url)
             @header_sent = false
             OML4R.logger.info "Reconnected to '#{@url}'"
             return _send(msg)
