@@ -8,26 +8,26 @@
 #
 # == Description
 #
-# Provides convenience functions to monitor long running services and 
+# Provides convenience functions to monitor long running services and
 # report performance metrics through OML
 #
 require 'oml4r'
 
 module OML4R
   #
-  # Monitor the CPU consumption of a block and report it to 
+  # Monitor the CPU consumption of a block and report it to
   # OML
   #
   class Benchmark
 
-    def self.bm(label, opts = {}, &block) 
+    def self.bm(label, opts = {}, &block)
       inst = self.new(label, opts)
       inst.measure(&block) if block
       inst
     end
 
     # Measure execution of 'block'. Benchmarking is assumed
-    # to be finished when block finished. Don't attempt to 
+    # to be finished when block finished. Don't attempt to
     # call again
     #
     def measure(&block)
@@ -37,7 +37,7 @@ module OML4R
       _stop
     end
 
-    # Execute block and add execution time to overall 
+    # Execute block and add execution time to overall
     # measurements. Can be called multiple time. Need
     # to finally call '#stop' to report overall stats.
     #
@@ -56,7 +56,7 @@ module OML4R
 
       if @monitor_interval > 0
         Thread.new do
-          while @running 
+          while @running
             sleep @monitor_interval
             _report()
           end
@@ -203,14 +203,14 @@ end
 if __FILE__ == $0
   opts = {
     :appName => 'bm_test',
-    :domain => 'foo', 
+    :domain => 'foo',
     :nodeID => 'n1',
     :collect => 'file:-'
-  } 
+  }
   OML4R::init(ARGV, opts)
 
-  bm_i = OML4R::Benchmark.bm('inner_test', periodic: 0.1)
-  OML4R::Benchmark.bm('test', periodic: 0.1) do |bm|
+  bm_i = OML4R::Benchmark.bm('inner_test', :periodic => 0.1)
+  OML4R::Benchmark.bm('test', :periodic => 0.1) do |bm|
     20.times do |i|
       10.times do
         "a" * 1_000_000

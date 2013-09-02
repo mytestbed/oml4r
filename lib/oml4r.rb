@@ -84,7 +84,7 @@ module OML4R
       if opts[:add_prefix].nil?
         opts[:add_prefix] = true
       end
-      __def__()[:name] = {name: name, opts: opts}
+      __def__()[:name] = {:name => name, :opts => opts}
     end
 
     # Set the channel these measurements should be sent out on.
