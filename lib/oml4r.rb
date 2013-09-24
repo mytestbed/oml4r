@@ -27,7 +27,7 @@ require 'oml4r/version'
 module OML4R
 
   DEF_SERVER_PORT = 3003
-  DEF_PROTOCOL = 3
+  DEF_PROTOCOL = 4
 
   # Overwrite the default logger
   #
@@ -98,17 +98,14 @@ module OML4R
     # Set a metric for this MP
     # - name = name of the metric to set
     # - opts = a Hash with the options for this metric
-    #          Only supported option is :type = { :string | :int32 | :double }
+    #          Only supported option is :type = { :string | :int32 | :double | :bool }
     def self.param(name, opts = {})
       o = opts.dup
       o[:name] = name
       o[:type] ||= :string
-      case o[:type]
-      when :long
+      if :long == o[:type]
         OML4R.logger.warn ":long is deprecated use, :int32 instead"
         o[:type] = :int32
-      when :boolean
-        o[:type] = :int32  # TODO: Hopefully we can remove this soon
       end
       __def__()[:p_def] << o
       nil
@@ -138,10 +135,10 @@ module OML4R
         case types[i]
         when :string
           # Escape tabs and newlines
-          arg = arg.to_s.gsub("\n", "\\n").gsub("\t", "\\t")
-        when :boolean
-          # boolean
-          arg = arg ? 1 : 0
+          arg = arg.to_s.gsub("\\", "\\\\").gsub("\r", "\\r").gsub("\n", "\\n").gsub("\t", "\\t")
+        when :bool
+          # Convert boolean value to appropriate literal
+          arg = arg ? "True" : "False"
         when :blob
           arg = [arg].pack("m")
         end
@@ -156,6 +153,13 @@ module OML4R
       end
       args
     end
+
+    # Inject measurement metadata from this Measurement Point to the
+    # OML Server.
+    # 
+    # def self.inject_metadata(key, value, fname)
+    #    MPBase::__inject_metadata__(@name, key, value, fname)
+    # end
 
     def self.start_time()
       @@start_time
@@ -217,8 +221,6 @@ module OML4R
     end
   end # class MPBase
 
-
-
   #
   # The Init method of OML4R
   # Ruby applications should call this method to initialise the OML4R module
@@ -238,8 +240,7 @@ module OML4R
   # param block = a block which defines the additional application-specific arguments
   #
   def self.init(argv, opts = {}, &block)
-    OML4R#{VERSION_STRING} [#{COPYRIGHT}")
-
+    OML4R.logger.info "V#{VERSION} #{COPYRIGHT}"
     if d = (ENV['OML_EXP_ID'] || opts[:expID])
       # NOTE: It is still too early to complain about that. We need to be sure
       # of the nomenclature before making user-visible changes.
@@ -365,10 +366,7 @@ module OML4R
 
 
   #
-  # Measurement Point Class
-  # Ruby applications using this module should sub-class this MPBase class
-  # to define their own Measurement Point (see the example at the end of
-  # this file)
+  # Measurement Channel
   #
   class Channel
     @@channels = {}
@@ -438,10 +436,9 @@ module OML4R
       @url = url
     end
 
-    def send_schema(mp_name, pdefs) # defs[:p_def]
+    def send_schema(mp_name, pdefs)
       # Build the schema and send it
       @index += 1
-      #line = ['schema:', @index, mp_name]
       line = [@index, mp_name]
       pdefs.each do |d|
         line << "#{d[:name]}:#{d[:type]}"
@@ -469,7 +466,7 @@ module OML4R
     def initialize(url, domain)
       @domain = domain
       @url = url
-      @index = 0
+      @index = -1
       @schemas = []
       @header_sent = false
       @queue = Queue.new
@@ -509,16 +506,14 @@ module OML4R
         end
         header << ""
       when 4
-        i = 0
-        header << ""
-        header << "0\t0\t#{i += 1}\t.\texperiment-id\t#{d}"
-        header << "0\t0\t#{i += 1}\t.\tstart_time\t#{@startTime.tv_sec}"
-        header << "0\t0\t#{i += 1}\t.\tsender-id\t#{@nodeID}"
-        header << "0\t0\t#{i += 1}\t.\tapp-name\t#{@appName}"
+        header << "domain: #{d}"
+        header << "start-time: #{@startTime.tv_sec}"
+        header << "sender-id: #{@nodeID}"
+        header << "app-name: #{@appName}"
         @schemas.each do |s|
-          header << "0\t0\t#{i += 1}\t.\tschema\t#{s}"
+          header << "schema: #{s}"
         end
-
+        header << ""
       else
         raise OML4RException.new "Unsupported protocol #{@protocol}"
       end
@@ -526,7 +521,6 @@ module OML4R
     end
 
     def start_runner
-      header_sent = false
       @runner = Thread.new do
         active = true
         begin
@@ -586,6 +580,16 @@ module OML4R
 
   end # Channel
 
+
+  # Hard-code "schema0" measurement point
+  class ExperimentMetadata < MPBase
+    name :_experiment_metadata, :add_prefix => false
+    param :subject, :type => :string
+    param :key, :type => :string
+    param :value, :type => :string    
+  end
+
+
   require 'logger'
 
   class Logger < ::Logger
@@ -600,7 +604,6 @@ module OML4R
   def self.logger
     @@logger
   end
-
 
 end # module OML4R
 
