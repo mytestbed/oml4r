@@ -13,12 +13,15 @@
 # User can use this library to create ruby applications which can send
 # measurement to the OML collection server.
 #
+
+require 'set'
 require 'socket'
 require 'monitor'
 require 'thread'
 require 'optparse'
 
 require 'oml4r/version'
+
 
 #
 # This is the OML4R module, which should be required by ruby applications
@@ -51,9 +54,11 @@ module OML4R
     # Some Class variables
     @@defs = {}
     @@channels = {}
+    @@channelNames = {}
     @@frozen = false
     @@useOML = false
     @@start_time = nil
+    @@newDefs = Set[]
 
     # Execute a block for each defined MP
     def self.each_mp(&block)
@@ -71,6 +76,7 @@ module OML4R
         defs = @@defs[self] = {}
         defs[:p_def] = []
         defs[:seq_no] = 0
+        defs[:meta_no] = 0
       end
       defs
     end
@@ -81,10 +87,18 @@ module OML4R
     # opts add_prefix Add app name as prefix to table. Default: true
     #
     def self.name(name, opts = {})
+
+      # ok, lets add it then
       if opts[:add_prefix].nil?
         opts[:add_prefix] = true
       end
       __def__()[:name] = {:name => name, :opts => opts}
+
+      # if we're frozen remember to inject schema before measurements
+      if @@frozen
+        @@newDefs.add self
+      end
+
     end
 
     # Set the channel these measurements should be sent out on.
@@ -92,7 +106,7 @@ module OML4R
     # the channel defined by the command line arguments or environment variables.
     #
     def self.channel(channel, domain = :default)
-      (@@channels[self] ||= []) << [channel, domain]
+      (@@channelNames[self] ||= []) << [channel, domain]
     end
 
     # Set a metric for this MP
@@ -116,7 +130,40 @@ module OML4R
     # - args = a list of arguments (comma separated) which correspond to the
     #          different values of the metrics for the measurement to inject
     def self.inject(*args)
+
       return unless @@useOML
+
+      # Do we need to send a schema update?
+      if @@newDefs.include? self
+        defs = @@defs[self]
+        mp_name_def = defs[:name]
+        mp_name = mp_name_def[:name]
+        pdefs = defs[:p_def]
+        defs[:types] = pdefs.map {|h| h[:type]}
+        # prepare the message header
+        a = []
+        a << Time.now - @@start_time
+        a << "0"
+        a << (defs[:meta_no] += 1)
+        a << "."
+        a << "schema"
+        msg = a.join("\t")
+        # Create the channels
+        names = @@channelNames[self] || []
+        chans = names.collect do |cname, domain|
+          [Channel[cname.to_sym, domain.to_sym]]
+        end
+        @@channels[self] = chans.empty? ? [[Channel[]]] : chans
+        # Now inject the schema
+        ca = @@channels[OML4R::ExperimentMetadata][0]
+        channel = ca[0]
+        schema_info = channel.build_schema(mp_name, mp_name_def[:opts][:add_prefix], pdefs)
+        channel.send_schema_update(msg + "\t" + schema_info[1])
+        @@channels[self].each do |ca|
+          ca << schema_info[0]
+        end
+        @@newDefs.delete self
+      end
 
       # Check that the list of values passed as argument matches the
       # definition of this Measurement Point
@@ -177,14 +224,14 @@ module OML4R
 
       # replace channel names with channel object
       self.each_mp do |klass, defs|
-        cna = @@channels[klass] || []
-        OML4R.logger.debug "'#{cna.inspect}', '#{klass}'"
-        ca = cna.collect do |cname, domain|
+        names = @@channelNames[klass] || []
+        OML4R.logger.debug "'#{names.inspect}', '#{klass}'"
+        chans = names.collect do |cname, domain|
           # return it in an array as we need to add the channel specific index
           [Channel[cname.to_sym, domain.to_sym]]
         end
-        OML4R.logger.debug "Using channels '#{ca.inspect}"
-        @@channels[klass] = ca.empty? ? [[Channel[]]] : ca
+        OML4R.logger.debug "Using channels '#{chans.inspect}"
+        @@channels[klass] = chans.empty? ? [[Channel[]]] : chans
       end
       @@start_time = start_time
     end
@@ -208,15 +255,13 @@ module OML4R
       unless (mp_name_def = defs[:name])
         raise MissingArgumentException.new "Missing 'name' declaration for '#{self}'"
       end
-      mp_name = mp_name_def[:name]
-      if !name_prefix.nil? && mp_name_def[:opts][:add_prefix]
-        mp_name = "#{name_prefix}_#{mp_name}"
-      end
 
+      # Build the schema
+      mp_name = mp_name_def[:name]
       @@channels[self].each do |ca|
         OML4R.logger.debug "Setting up channel '#{ca.inspect}"
-        index = ca[0].send_schema(mp_name, defs[:p_def])
-        ca << index
+        schema_info = ca[0].build_schema(mp_name, mp_name_def[:opts][:add_prefix], defs[:p_def])
+        ca << schema_info[0]
       end
     end
   end # class MPBase
@@ -364,15 +409,12 @@ module OML4R
   end
 
 
-
   #
   # Measurement Channel
   #
   class Channel
     @@channels = {}
     @@default_domain = nil
-
-
 
     def self.create(name, url, domain = :default)
       key = "#{name}:#{domain}"
@@ -436,23 +478,27 @@ module OML4R
       @url = url
     end
 
-    def send_schema(mp_name, pdefs)
-      # Build the schema and send it
+    def build_schema(mp_name, add_prefix, pdefs)
       @index += 1
-      line = [@index, mp_name]
+      line = [@index, (!@@appName.nil? && add_prefix)? "#{@@appName}_#{mp_name}" : mp_name]
       pdefs.each do |d|
         line << "#{d[:name]}:#{d[:type]}"
       end
       msg = line.join(' ')
       @schemas << msg
-      @index
+      [@index, msg]
     end
 
     def send(msg)
       @queue.push msg
     end
+ 
+    def send_schema_update(msg)
+      @header_sent = true
+      @queue.push msg
+    end
 
-    def init(nodeID, appName, startTime, protocol)
+   def init(nodeID, appName, startTime, protocol)
       @nodeID, @appName, @startTime, @protocol = nodeID, appName, startTime, protocol
       @out = _connect(@url)
     end
@@ -496,15 +542,6 @@ module OML4R
       d = (@domain == :default) ? @@default_domain : @domain
       raise MissingArgumentException.new "Missing domain name" unless d
       case @protocol || OML4R::DEF_PROTOCOL
-      when 3
-        header << "experiment-id: #{d}"
-        header << "start_time: #{@startTime.tv_sec}"
-        header << "sender-id: #{@nodeID}"
-        header << "app-name: #{@appName}"
-        @schemas.each do |s|
-          header << "schema: #{s}"
-        end
-        header << ""
       when 4
         header << "domain: #{d}"
         header << "start-time: #{@startTime.tv_sec}"
