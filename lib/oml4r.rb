@@ -155,8 +155,8 @@ module OML4R
         end
         @@channels[self] = chans.empty? ? [[Channel[]]] : chans
         # Now inject the schema
-        ca = @@channels[OML4R::ExperimentMetadata][0]
-        channel = ca[0]
+        meta_ca = @@channels[OML4R::ExperimentMetadata][0]
+        channel = meta_ca[0]
         schema_info = channel.build_schema(mp_name, mp_name_def[:opts][:add_prefix], pdefs)
         channel.send_schema_update(msg + "\t" + schema_info[1])
         @@channels[self].each do |ca|
@@ -354,8 +354,8 @@ module OML4R
       end
       return if noop
     end
-
-    unless opts[:nodeID]
+ 
+   unless opts[:nodeID]
       begin
         # Create a default nodeID by concatinating the local hostname with the process ID
         hostname = nil
@@ -380,16 +380,12 @@ module OML4R
       raise MissingArgumentException.new 'OML4R: Missing values for parameters :domain (--oml-domain), :nodeID (--oml-id), or :appName (in code)!'
     end
 
-    unless opts[:create_default_channel] == false
-      # Set a default collection URI if nothing has been specified
-      unless opts[:omlCollectUri]
-        require 'time'
-        opts[:omlCollectUri] = "file:#{opts[:appName]}_#{Time.now.iso8601}"
-        #opts[:omlCollectUri] = "file:-"
-        OML4R.logger.info "Collection URI is #{opts[:omlCollectUri]}"
-      end
-      create_channel(:default, opts[:omlCollectUri])
-    end
+    # Set a default collection URI if nothing has been specified
+    opts[:omlCollectUri] ||= "file:#{opts[:appName]}_#{opts[:nodeID]}_#{opts[:domain]}_#{Time.now.strftime("%Y-%m-%dt%H.%M.%S%z")}"
+    opts[:omlCollectUri] = qualify_uri(opts[:omlCollectUri])
+    OML4R.logger.info "Collection URI is #{opts[:omlCollectUri]}"
+
+    create_channel(:default, opts[:omlCollectUri]) if opts[:omlCollectUri]
 
     # Handle the defined Measurement Points
     startTime = Time.now
@@ -397,6 +393,54 @@ module OML4R
     rest || []
   end
 
+  # Parse an underspecified URI into a fully-qualified one
+  # URIs are resolved as follows; the default is [tcp:]host[:port].
+  #  hostname		-> tcp:hostname:3003
+  #  hostname:3004	-> tcp:hostname:3004
+  #  tcp:hostname	-> tcp:hostname:3003
+  #  tcp:hostname:3004	-> tcp:hostname:3004
+  #  file:/P/A/T/H	-> file:/P/A/T/H
+  #
+  # @param uri [String] a potentially under-qualified collection URI
+  #
+  # @return [String] afully-qualified collection URI equivalent to uri
+  #
+  # @raise [OML4RException] in case of a parsing error
+  #
+  def self.qualify_uri(uri)
+    curi = uri.split(':')
+
+    # Defaults
+    scheme = 'tcp'
+    port = DEF_SERVER_PORT
+
+    if curi.length == 1
+      host = curi[0]
+
+    elsif curi.length == 2
+      if curi[0] == 'tcp'
+        scheme, host = curi
+
+      elsif  curi[0] == 'file'
+        scheme, host = curi
+        port = nil
+
+      else
+        host, port = curi
+      end
+
+    elsif curi.length >= 3
+      if curi.length > 3
+        OML4R.logger.warn "Parsing URI '#{uri}' as a triplet, ignoring later components"
+      end
+      scheme, host, port = curi
+
+    else
+      raise OML4RException.new "OML4R: Unable to parse URI '#{url}"
+    end
+    "#{scheme}:#{host}#{":#{port}" if port}"
+  end
+  
   def self.create_channel(name, url)
     Channel.create(name, url)
   end
@@ -424,8 +468,36 @@ module OML4R
         end
         return channel
       end
-      #return self._create(key, domain, url)
-      return @@channels[key] = self.new(url, domain)
+      return self._create(key, domain, url)
+    end
+
+    def self._create(key, domain, url)
+      @@channels[key] = self.new(url, domain)
+    end
+
+    # Parse the given fully-qualified collection URI, and return a suitably connected objet
+    #
+    # Supported URIs are
+    #  tcp:host:port
+    #  file:/P/A/T/H
+    #
+    # @param fquri [String] a fully qualified collection URI
+    # @return [IO] an object suitably connected to the required URL
+    #
+    # @raise [OML4RException] in case of an unknown scheme
+    #
+    def self._connect(fquri)
+      scheme, host, port = fquri.split(':')
+      out = case scheme
+            when 'tcp'
+              out = TCPSocket.new(host, port)
+            when 'file'
+              # host is really a filename here
+              out = (host == '-' ? $stdout : File.open(host, "w+"))
+            else
+              raise OML4RException.new "OML4R: Unknown scheme '#{scheme}"
+            end
+      out
     end
 
     def self.[](name = :default, domain = :default)
@@ -498,7 +570,7 @@ module OML4R
       @queue.push msg
     end
 
-   def init(nodeID, appName, startTime, protocol)
+    def init(nodeID, appName, startTime, protocol)
       @nodeID, @appName, @startTime, @protocol = nodeID, appName, startTime, protocol
       @out = _connect(@url)
     end
