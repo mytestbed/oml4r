@@ -314,7 +314,7 @@ module OML4R
     if ENV['OML_SERVER'] || opts[:omlServer]
         OML4R.logger.warn "opts[:omlServer] and ENV['OML_SERVER'] are getting deprecated; please use opts[:collect] or ENV['OML_COLLECT'] instead"
     end
-    opts[:collect] = ENV['OML_COLLECT'] || ENV['OML_SERVER'] || opts[:collect] || opts[:omlServer]
+    opts[:omlCollectUri] = ENV['OML_COLLECT'] || ENV['OML_SERVER'] || opts[:collect] || opts[:omlServer]
     noop = opts[:noop] || false
     omlConfigFile = nil
 
