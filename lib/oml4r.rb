@@ -332,7 +332,7 @@ module OML4R
       op.on("--oml-noop", "Do not collect measurements") { noop = true }
       op.on("--oml-config file", "File holding OML configuration parameters") { |f| omlConfigFile = f }
       op.on("--oml-exp-id domain", "Obsolescent equivalent to --oml-domain domain") { |name|
-        domain = name
+        opts[:domain] = name
         OML4R.logger.warn "Option --oml-exp-id is getting deprecated; please use '--oml-domain #{domain}' instead"
       }
       op.on("--oml-file localPath", "Obsolescent equivalent to --oml-collect file:localPath") { |name|
@@ -340,7 +340,7 @@ module OML4R
         OML4R.logger.warn "Option --oml-file is getting deprecated; please use '--oml-collect #{opts[:omlCollectUri]}' instead"
       }
       op.on("--oml-server uri", "Obsolescent equivalent to --oml-collect uri") {|u|
-        opts[:omlCollectUri] = "tcp:#{u}"
+        opts[:omlCollectUri] = "#{u}"
         OML4R.logger.warn "Option --oml-server is getting deprecated; please use '--oml-collect #{opts[:omlCollectUri]}' instead"
       }
       op.on_tail("--oml-help", "Show this message") { $stderr.puts op; exit }
@@ -394,7 +394,7 @@ module OML4R
     end
 
     unless opts[:domain] && opts[:appName]
-      raise MissingArgumentException.new 'OML4R: Missing values for parameters :domain (--oml-domain), :nodeID (--oml-id), or :appName (in code)!'
+      raise MissingArgumentException.new 'OML4R: Missing values for parameters :domain (--oml-domain) or :appName (in code)!'
     end
 
     # Set a default collection URI if nothing has been specified
