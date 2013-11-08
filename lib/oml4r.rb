@@ -180,6 +180,8 @@ module OML4R
       a << (defs[:seq_no] += 1)
       args.each_with_index do |arg, i|
         case types[i]
+        when :double
+          arg = "NaN" if arg.nil?
         when :string
           # Escape tabs and newlines
           arg = arg.to_s.gsub("\\", "\\\\").gsub("\r", "\\r").gsub("\n", "\\n").gsub("\t", "\\t")

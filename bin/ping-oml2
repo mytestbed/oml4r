@@ -91,22 +91,22 @@ class PingWrapper
 
   def process_output(row)
     if not (parse =
-	    /^\d+ bytes from (.*): icmp_[sr]eq=(\d+) ttl=(\d+) time=([0-9.]+) ([a-zA-Z]+)/.match(row)
+	    /^\d+ bytes from (.*):.*ttl=(\d+) time=([0-9.]+) ([a-zA-Z]+)/.match(row)
 	   ).nil?  # One sample
-	   MPStat.inject(parse[0], parse[1], parse[2], parse[3])
+	   MPStat.inject(*parse[1..4])
 
     elsif not (parse =
-	       /^(\d+).*transmitted, (\d+).*received, ([0-9.]+)%.*loss, time ([0-9.]+) *([a-zA-Z]+)/.match(row)
+	       /^(\d+).*transmitted, (\d+).*received, ([0-9.]+)%.*loss(, time ([0-9.]+) *([a-zA-Z]+))?/.match(row)
 	      ).nil?  # Summary
-	      p parse
-	      p MPSummary.inject(parse[0], parse[1], parse[2], parse[3], parse[4])
+        # time (matches 5 & 6) is not printed by ping on OSX
+        # match 4 is unused
+        q = parse.to_a[1..3] + parse.to_a[5..6]
+	      MPSummary.inject(*q)
 
     elsif not (parse =
-	       /rtt.*= ([0-9.]+)\/([0-9.]+)\/([0-9.]+)\/([0-9.]+) ([a-zA-Z]+)/.match(row)
+	       /min.*= ([0-9.]+)\/([0-9.]+)\/([0-9.]+)\/([0-9.]+) ([a-zA-Z]+)/.match(row)
 	      ).nil?  # RTT statistics
-	      p parse
-	      p MPRTTStats.inject(parse[0], parse[1], parse[2], parse[3], parse[4])
-
+	      MPRTTStats.inject(*parse[1..5])
     end
   end
 
