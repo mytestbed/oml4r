@@ -359,15 +359,16 @@ module OML4R
      unless omlConfigFile.nil? 
        f = File.open(omlConfigFile, 'r')
        f.each_line do |l|
-         d = l[/.*experiment=["']([^["']]*)/,1]
+         d = l[/.*experiment=["']([^"']*)/,1]
          opts[:domain] = d if d
-         d = l[/.*domain=["']([^["']]*)/,1]
+         d = l[/.*domain=["']([^"']*)/,1]
          opts[:domain] = d if d
-         i = l[/.*id=["']([^["']]*)/,1]
+         i = l[/.*id=["']([^"']*)/,1]
          opts[:nodeID] = i if i
-         u = l[/.*url=["']([^["']]*)/,1]
+         u = l[/.*url=["']([^"']*)/,1]
          opts[:omlCollectUri] = u if u
        end
+       p opts
        f.close
      end
     end
