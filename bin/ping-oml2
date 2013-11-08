@@ -1,0 +1,168 @@
+#!/usr/bin/env ruby
+#
+# OML4R wrapper for ping
+#
+# This application runs the system ping, parses its output and reports the
+# measurements via OML
+#
+# Author: Christoph Dwertmann <christoph.dwertmann@nicta.com.au>, (C) 2012-2013
+# Author: Olivier Mehani  <olivier.mehani@nicta.com.au>, (C) 2012-2013
+#
+# Copyright (c) 2012 National ICT Australia (NICTA)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+
+require 'rubygems'
+require 'oml4r'
+
+class MPStat < OML4R::MPBase
+  name :ping
+  param :dest_addr, :type => :string
+  param :ttl, :type => :uint32
+  param :rtt, :type => :double
+  param :rtt_unit, :type => :string
+end
+
+class MPSummary < OML4R::MPBase
+  name :summary
+  param :ntransmitted, :type => :uint32
+  param :nreceived, :type => :uint32
+  param :lossratio, :type => :double
+  param :runtime, :type => :double
+  param :runtime_unit, :type => :string
+end
+
+class MPRTTStats < OML4R::MPBase
+  name :rtt_stats
+  param :min, :type => :double
+  param :avg, :type => :double
+  param :max, :type => :double
+  param :mdev, :type => :double
+  param :rtt_unit, :type => :string
+end
+
+class PingWrapper
+
+  def initialize(args)
+    @addr = nil
+    @count = ''
+    @interval = ''
+    @verbose = true
+    @inet6 = ''
+    @numeric = ''
+    @pingio = nil
+
+    leftover = OML4R::init(args, :appName => 'ping') do |argParser|
+      argParser.banner = "Runs the system ping and reports measurements via OML\n Use -h or --help for a list of options\n\n"
+      argParser.on("-a","--dest_addr ADDRESS","Address to ping (the -a switch is optional)") { |address| @addr = address.to_s() }
+      argParser.on("-c","--count NUMBER","Number of pings (default: infinite)"){ |count| @count = "-c #{count.to_i()}"}
+      argParser.on("-i","--interval NUMBER","Interval between pings (seconds)"){ |interval| @interval = "-i #{interval.to_i()}"}
+      argParser.on("-q","--[no]-quiet ","Don't show ping output on the console"){ @verbose = false }
+      argParser.on("-6","--[no]-inet6 ","Use ping6 rather than ping"){ @inet6 = "6"}
+      argParser.on("-n","--[no]-numeric ","No attempt will be made to lookup symbolic names for host addresses"){ @numeric = '-n' }
+    end
+
+    if @addr.nil?
+      if leftover.length > 0
+        @addr = leftover[0]
+      else
+        raise "You did not specify an address to ping!"
+      end
+    end
+
+  end
+
+  def process_output(row)
+    if not (parse =
+	    /^\d+ bytes from (?<host>.*): icmp_[sr]eq=(?<icmp_seq>\d+) ttl=(?<ttl>\d+) time=(?<time>[0-9.]+) (?<timeunit>[a-zA-Z]+)/.match(row)
+	   ).nil?  # One sample
+	   MPStat.inject(parse[:host], parse[:ttl], parse[:time], parse[:timeunit])
+
+    elsif not (parse =
+	       /^(?<transmitted>\d+).*transmitted, (?<received>\d+).*received, (?<loss>[0-9.]+)%.*loss, time (?<time>[0-9.]+) *(?<timeunit>[a-zA-Z]+)/.match(row)
+	      ).nil?  # Summary
+	      p parse
+	      p MPSummary.inject(parse[:transmitted], parse[:received], parse[:loss], parse[:time], parse[:timeunit])
+
+    elsif not (parse =
+	       /rtt.*= (?<min>[0-9.]+)\/(?<avg>[0-9.]+)\/(?<max>[0-9.]+)\/(?<mdev>[0-9.]+) (?<timeunit>[a-zA-Z]+)/.match(row)
+	      ).nil?  # RTT statistics
+	      p parse
+	      p MPRTTStats.inject(parse[:min], parse[:avg], parse[:max], parse[:mdev], parse[:timeunit])
+
+    end
+  end
+
+  def ping()
+    @pingio = IO.popen("ping#{@inet6} #{@numeric} #{@count} #{@interval} #{@addr}")
+    while true
+      row = @pingio.readline
+      puts row if @verbose
+      process_output(row)
+    end
+  end
+
+  def start()
+    return if not @pingio.nil?
+
+    # Handle for OMF's 'exit' command
+    a = Thread.new do
+      $stdin.each do |line|
+	if /^exit/ =~ line
+	  Process.kill("INT", 0)
+	end
+      end
+    end
+
+    # Handle Ctrl+C and OMF's SIGTERM
+    Signal.trap("INT", stop )
+    Signal.trap("TERM", stop)
+
+    begin
+      ping
+    rescue EOFError
+      # This error is expected
+    end
+  end
+
+  def stop()
+    return if @pingio.nil?
+    # Kill the ping process, which will result in EOFError from ping()
+    Process.kill("INT", @pingio.pid)
+  end
+
+end #end of class
+
+begin
+  $stderr.puts " INFO ping-oml2: V#{OML4R::VERSION}\n"
+  app = PingWrapper.new(ARGV)
+  app.start()
+  # XXX: Sleep for one second to let OML4R send the remaining data (see comments
+  # in #1485)
+  sleep 1
+rescue Interrupt
+rescue Exception => ex
+  $stderr.puts " ERROR ping-oml2: #{ex}\n"
+end
+
+# Local Variables:
+# mode:ruby
+# End:
+# vim: ft=ruby:sw=2

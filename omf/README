@@ -1,0 +1,1 @@
+This directory contains OMF application definitions for the applications that ship with the oml4r gem. To use it, copy the application definition file into the ame directory as your OEDL experiment and run the EC from there.
