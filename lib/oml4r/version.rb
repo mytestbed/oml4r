@@ -5,7 +5,7 @@
 # ------------------
 
 module OML4R
-  VERSION = "3.0.0"
+  VERSION = "2.9.9"
   VERSION_STRING = "OML4R Client V#{VERSION}"
   COPYRIGHT = "Copyright 2009-2013, NICTA"
 end

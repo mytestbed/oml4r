@@ -368,7 +368,6 @@ module OML4R
          u = l[/.*url=["']([^"']*)/,1]
          opts[:omlCollectUri] = u if u
        end
-       p opts
        f.close
      end
     end
