@@ -287,7 +287,7 @@ module OML4R
   # param block = a block which defines the additional application-specific arguments
   #
   def self.init(argv, opts = {}, &block)
-    OML4R.logger.info "V#{VERSION} #{COPYRIGHT}"
+    OML4R.logger.info "OML4R Client #{VERSION} [OMSPv#{opts[:protocol] || DEF_PROTOCOL}] #{COPYRIGHT}"
     if d = (ENV['OML_EXP_ID'] || opts[:expID])
       # NOTE: It is still too early to complain about that. We need to be sure
       # of the nomenclature before making user-visible changes.
@@ -722,7 +722,7 @@ module OML4R
 
   class Logger < ::Logger
     def format_message(severity, time, progname, message)
-      "%5s oml4r: %s\n" % [severity, message]
+      "%s\t%s\n" % [severity, message]
     end
   end
 
