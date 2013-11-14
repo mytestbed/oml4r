@@ -330,7 +330,7 @@ module OML4R
       op.on("--oml-domain domain", "Name of experimental domain [#{opts[:domain] || 'undefined'}] *EXPERIMENTAL*") { |name| opts[:domain] = name }
       op.on("--oml-collect uri", "URI of server to send measurements to") { |u|  opts[:omlCollectUri] = u }
       op.on("--oml-protocol p", "Protocol number [#{OML4R::DEF_PROTOCOL}]") { |l| opts[:protocol] = l.to_i }
-      op.on("--oml-log-level l", "Log level used (info: 1 .. debug: 0)") { |l| OML4R.logger.level = l.to_i }
+      op.on("--oml-log-level l", "Log level used (info: 0 .. debug: 1)") { |l| OML4R.logger.level = 1 - l.to_i }
       op.on("--oml-noop", "Do not collect measurements") { noop = true }
       op.on("--oml-config file", "File holding OML configuration parameters") { |f| omlConfigFile = f }
       op.on("--oml-exp-id domain", "Obsolescent equivalent to --oml-domain domain") { |name|
