@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 # Copyright (c) 2009 - 2012 National ICT Australia Limited (NICTA).
 # This software may be used and distributed solely under the terms of the MIT license (License).
 # You should find a copy of the License in LICENSE.TXT or at http://opensource.org/licenses/MIT.
