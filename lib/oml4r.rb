@@ -287,7 +287,7 @@ module OML4R
   # param block = a block which defines the additional application-specific arguments
   #
   def self.init(argv, opts = {}, &block)
-    OML4R.logger.info "OML4R Client #{VERSION} [OMSPv#{opts[:protocol] || DEF_PROTOCOL}] #{COPYRIGHT}"
+    OML4R.logger.info "OML4R Client #{VERSION} [OMSPv#{opts[:protocol] || DEF_PROTOCOL}; Ruby #{RUBY_VERSION}] #{COPYRIGHT}"
     if d = (ENV['OML_EXP_ID'] || opts[:expID])
       # NOTE: It is still too early to complain about that. We need to be sure
       # of the nomenclature before making user-visible changes.

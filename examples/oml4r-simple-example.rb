@@ -12,6 +12,10 @@
 #
 # A very simple straightforward example of OML4R.
 #
+
+# Use the oml4r.rb from ../lib
+#$:.unshift "#{File.dirname(__FILE__)}/../lib"
+
 require 'rubygems'
 require 'oml4r'
 
