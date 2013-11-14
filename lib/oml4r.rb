@@ -350,12 +350,12 @@ module OML4R
       #op.on("--oml-appid APPID", "Application ID for OML [#{appName || 'undefined'}] *EXPERIMENTAL*") { |name| appID = name }
 
       # Now parse the command line
-      OML4R.logger.debug "ARGV: #{argv.inspect}"
       rest = op.parse(argv)
       if opts[:afterParse]
         # give the app a chance to fix missing parameters
         opts[:afterParse].call(opts)
       end
+     OML4R.logger.debug "ARGV: #{argv.inspect}"
      return if noop
      # Parameters in OML config file takes precedence
      unless omlConfigFile.nil? 
