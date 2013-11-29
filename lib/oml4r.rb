@@ -19,6 +19,7 @@ require 'socket'
 require 'monitor'
 require 'thread'
 require 'optparse'
+require 'securerandom'
 
 require 'oml4r/version'
 
@@ -112,7 +113,7 @@ module OML4R
     # Set a metric for this MP
     # - name = name of the metric to set
     # - opts = a Hash with the options for this metric
-    #          Only supported option is :type = { :string | :int32 | :double | :bool }
+    #          Only supported option is :type = { :string | :int32 | :double | :bool | :guid }
     def self.param(name, opts = {})
       o = opts.dup
       o[:name] = name
@@ -469,6 +470,13 @@ module OML4R
   #
   def self.close()
     Channel.close_all
+  end
+
+  # Generate a random GUID
+  #
+  # @return [BigNum] An integer GUID.
+  def self.generate_guid()
+    SecureRandom.random_number(2**64)
   end
 
 
