@@ -53,6 +53,7 @@ module OML4R
   class MPBase
 
     # Some Class variables
+    @@appName = nil
     @@defs = {}
     @@channels = {}
     @@channelNames = {}
@@ -126,49 +127,81 @@ module OML4R
       nil
     end
 
+    # Inject a metadata measurement from this Measurement Point ot the OML Server. 
+    # - key = a string used to identify the key
+    # - value = the string value
+    # - fname = when not nil a string used to qualify the subject name
+    def self.inject_metadata(key, value, fname = nil)
+
+      return unless @@useOML
+
+      # retrieve infos
+      defs = @@defs[self]
+      mp_name_def = defs[:name]
+      mp_name = mp_name_def[:name]
+      pdefs = defs[:p_def]
+      defs[:types] = pdefs.map {|h| h[:type]}
+
+      # construct the subject reference
+      subject = "."
+      if self != OML4R::ExperimentMetadata
+        subject +=  "#{@@appName}_#{mp_name}"
+        unless fname.nil?
+          subject += ".#{fname}"
+        end
+      end
+
+      # prepare the message header
+      a = []
+      a << Time.now - @@start_time
+      a << "0"
+      a << (defs[:meta_no] += 1)
+      a << subject
+      a << key
+      a << value
+      msg = a.join("\t")
+
+      # Setup channels for the ExperimentMetadata MP
+      chans = @@channels[self] || []
+      if chans.empty?
+        @@channels[self] = [[Channel[], 0]]
+      end
+
+      # now inject the schema
+      @@channels[self].each do |ca|
+        channel = ca[0]
+        index = ca[1]
+        channel.send msg
+      end
+    end
+
     # Inject a measurement from this Measurement Point to the OML Server
     # However, if useOML flag is false, then only prints the measurement on stdout
     # - args = a list of arguments (comma separated) which correspond to the
     #          different values of the metrics for the measurement to inject
     def self.inject(*args)
-
       return unless @@useOML
 
-      # Do we need to send a schema update?
+      defs = __def__()
+
+      # Do we need to send the schema?
       if @@newDefs.include? self
-        defs = @@defs[self]
+        # Identify MP details
         mp_name_def = defs[:name]
         mp_name = mp_name_def[:name]
         pdefs = defs[:p_def]
         defs[:types] = pdefs.map {|h| h[:type]}
-        # prepare the message header
-        a = []
-        a << Time.now - @@start_time
-        a << "0"
-        a << (defs[:meta_no] += 1)
-        a << "."
-        a << "schema"
-        msg = a.join("\t")
-        # Create the channels
-        names = @@channelNames[self] || []
-        chans = names.collect do |cname, domain|
-          [Channel[cname.to_sym, domain.to_sym]]
-        end
-        @@channels[self] = chans.empty? ? [[Channel[]]] : chans
-        # Now inject the schema
-        meta_ca = @@channels[OML4R::ExperimentMetadata][0]
-        channel = meta_ca[0]
+        # Setup channel and schema
+        channel = Channel[]
         schema_info = channel.build_schema(mp_name, mp_name_def[:opts][:add_prefix], pdefs)
-        channel.send_schema_update(msg + "\t" + schema_info[1])
-        @@channels[self].each do |ca|
-          ca << schema_info[0]
-        end
+        @@channels[self] = [[channel, schema_info[0]]]
+        # Inject it!
+        ExperimentMetadata.inject_metadata("schema", schema_info[1])
         @@newDefs.delete self
       end
 
       # Check that the list of values passed as argument matches the
       # definition of this Measurement Point
-      defs = __def__()
       pdef = defs[:p_def]
       types = defs[:types]
       if args.size != pdef.size
@@ -201,6 +234,7 @@ module OML4R
         index = ca[1]
         channel.send "#{t}\t#{index}\t#{msg}"
       end
+
       args
     end
 
@@ -234,7 +268,7 @@ module OML4R
           [Channel[cname.to_sym, domain.to_sym]]
         end
         OML4R.logger.debug "Using channels '#{chans.inspect}"
-        @@channels[klass] = chans.empty? ? [[Channel[]]] : chans
+        @@channels[klass] = chans.empty? ? [[Channel[], 0]] : chans
       end
       @@start_time = start_time
     end
@@ -309,6 +343,7 @@ module OML4R
     #  raise 'OML4R: :app is not a valid option. Do you mean :appName?'
     #end
     opts[:appName] ||= opts[:app]
+    @@appName = opts[:appName]
     opts[:protocol] ||= DEF_PROTOCOL
 
     if  ENV['OML_URL'] || opts[:omlURL] || opts[:url]
