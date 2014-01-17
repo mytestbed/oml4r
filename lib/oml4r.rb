@@ -254,6 +254,7 @@ module OML4R
     def self.__freeze__(appName, start_time)
       return if @@frozen
       @@frozen = true
+      @@appName = appName
       # create type array for easier processing in inject
       @@defs.each do |name, descr|
         descr[:types] = descr[:p_def].map {|h| h[:type]}
