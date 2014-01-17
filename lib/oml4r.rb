@@ -269,7 +269,7 @@ module OML4R
           [Channel[cname.to_sym, domain.to_sym]]
         end
         OML4R.logger.debug "Using channels '#{chans.inspect}"
-        @@channels[klass] = chans.empty? ? [[Channel[], 0]] : chans
+        @@channels[klass] = chans.empty? ? [[Channel[]]] : chans
       end
       @@start_time = start_time
     end
