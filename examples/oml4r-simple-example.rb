@@ -52,10 +52,18 @@ rescue OML4R::MissingArgumentException => mex
   exit
 end
 
+freq = 2.0 # Hz
+inc = 15 # rad
+
 # Now collect and inject some measurements
+SinMP.inject_metadata "unit", "radian", "angle"
+SinMP.inject_metadata "freq_Hz", "#{freq}"
+SinMP.inject_metadata "inc_rad", "#{inc}"
+CosMP.inject_metadata "freq_Hz", "#{freq}"
+CosMP.inject_metadata "inc_rad", "#{inc}"
 500.times do |i|
-  sleep 0.5
-  angle = 15 * i
+  sleep 1./freq
+  angle = inc * i
   SinMP.inject("label_#{angle}", angle, Math.sin(angle))
   CosMP.inject("label_#{angle}", Math.cos(angle))    
 end
