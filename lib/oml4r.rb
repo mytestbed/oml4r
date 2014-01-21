@@ -114,13 +114,15 @@ module OML4R
     # Set a metric for this MP
     # - name = name of the metric to set
     # - opts = a Hash with the options for this metric
-    #          Only supported option is :type = { :string | :int32 | :double | :bool | :guid }
+    #          Only supported option is :type = { :string | :int32 | :uint32 | :int64 | :uint64 | :double | :bool | :guid |
+    #          [ DEPRECATED :long | :integer ] }
     def self.param(name, opts = {})
       o = opts.dup
       o[:name] = name
       o[:type] ||= :string
-      if :long == o[:type]
-        OML4R.logger.warn ":long is deprecated use, :int32 instead"
+      if :long == o[:type] or :integer == o[:type]
+	# XXX: :name in :name... See #1527 bullet point 3
+        OML4R.logger.warn "Type #{o[:type]} for #{__def__()[:name][:name]}.#{o[:name]} is deprecated, use :int32 instead"
         o[:type] = :int32
       end
       __def__()[:p_def] << o
