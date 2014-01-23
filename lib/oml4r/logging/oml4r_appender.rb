@@ -2,14 +2,14 @@ require 'logging'
 require 'oml4r'
 
 module Logging::Appenders
- 
+
   def self.oml4r *args
     return Logging::Appenders::Oml4r if args.empty?
     Logging::Appenders::Oml4r.new *args
   end
- 
+
   class Oml4r < Logging::Appender
- 
+
     class LogMP < OML4R::MPBase
       name :Log
       param :data, :type => :string
@@ -34,17 +34,17 @@ module Logging::Appenders
       end
     end
 
-    def close *args 
+    def close *args
       super(false)
       OML4R::close()
     end
- 
+
     private
 
     def write(event)
-      LogMP.inject(*event)
+      LogMP.inject(event.data,event.file,event.level,event.line,event.logger,event.method,event.time)
       self
     end
-    
+
   end # class Oml4r
 end # module
