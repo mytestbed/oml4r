@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
  
-require_relative 'oml4r_appender'
+require 'oml4r/logging/oml4r_appender'
  
 appender = Logging.appenders.oml4r('oml4r',
   :appName => 'log-tester',
