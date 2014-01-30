@@ -42,11 +42,11 @@ end
 opts = {:appName => 'oml4rSimpleExample',
   :domain => 'foo',
   :collect => 'file:-'} # Server could also be tcp:host:port
-#  
-#OML4R::create_channel(:ch1, 'file:/tmp/foo.log')    
+#
+#OML4R::create_channel(:ch1, 'file:/tmp/foo.log')
 
 begin
-  OML4R::init(ARGV, opts)
+  argv = OML4R::init(ARGV, opts)
 rescue OML4R::MissingArgumentException => mex
   $stderr.puts mex
   exit
@@ -61,11 +61,11 @@ SinMP.inject_metadata "freq_Hz", "#{freq}"
 SinMP.inject_metadata "inc_rad", "#{inc}"
 CosMP.inject_metadata "freq_Hz", "#{freq}"
 CosMP.inject_metadata "inc_rad", "#{inc}"
-500.times do |i|
+(argv[0] || 500).to_i.times do |i|
   sleep 1./freq
   angle = inc * i
   SinMP.inject("label_#{angle}", angle, Math.sin(angle))
-  CosMP.inject("label_#{angle}", Math.cos(angle))    
+  CosMP.inject("label_#{angle}", Math.cos(angle))
 end
 
 # Don't forget to close when you are finished
