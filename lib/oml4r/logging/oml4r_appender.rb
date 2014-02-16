@@ -1,24 +1,25 @@
 require 'logging'
 require 'oml4r'
+require 'time'
 
 module Logging::Appenders
 
   def self.oml4r *args
     return Logging::Appenders::Oml4r if args.empty?
-    Logging::Appenders::Oml4r.new *args
+    Logging::Appenders::Oml4r.new(*args)
   end
 
   class Oml4r < Logging::Appender
 
     class LogMP < OML4R::MPBase
-      name :Log
+      name :log
+      param :time, :type => :string
+      param :level, :type => :int32
+      param :logger, :type => :string
       param :data, :type => :string
       param :file, :type => :string
-      param :level, :type => :string
-      param :line, :type => :string
-      param :logger, :type => :string
+      param :line, :type => :int32
       param :method, :type => :string
-      param :time, :type => :string
     end
 
     # pass a name and the usual OML options here to configure oml4r
@@ -32,6 +33,7 @@ module Logging::Appenders
         $stderr.puts mex
         exit
       end
+      @inject_failed = false
     end
 
     def close *args
@@ -42,7 +44,16 @@ module Logging::Appenders
     private
 
     def write(event)
-      LogMP.inject(event.data,event.file,event.level,event.line,event.logger,event.method,event.time)
+      begin
+        LogMP.inject(event.time.iso8601, event.level.to_i, event.logger,
+                      event.data, event.file, event.line.to_i, event.method)
+      rescue => ex
+        # Complain only once
+        unless @inject_failed
+          $stderr.puts "ERROR: While sending logging message via OML4r - #{mex}"
+          @inject_failed = true
+        end
+      end
       self
     end
 
