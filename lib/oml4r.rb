@@ -67,6 +67,12 @@ module OML4R
       @@defs.each(&block)
     end
 
+    def self.has_mp?(name)
+      exist = false
+      @@defs.each { |m| exist = true if m[0].__def__[:name][:name]==name.to_sym }
+      exist
+    end
+
     # Set the useOML flag. If set to false, make 'inject' a NOOP
     def self.__useOML__()
       @@useOML = true
