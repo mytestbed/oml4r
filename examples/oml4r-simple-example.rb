@@ -48,7 +48,7 @@ opts = {:appName => 'oml4rSimpleExample',
 begin
   OML4R::init(ARGV, opts)
 rescue OML4R::MissingArgumentException => mex
-  $stderr.puts mex
+  OML4R.logger.error "oml4r-simple-example: #{mex}"
   exit
 end
 

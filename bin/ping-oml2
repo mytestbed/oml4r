@@ -6,9 +6,9 @@
 # measurements via OML
 #
 # Author: Christoph Dwertmann <christoph.dwertmann@nicta.com.au>, (C) 2012-2013
-# Author: Olivier Mehani  <olivier.mehani@nicta.com.au>, (C) 2012-2013
+# Author: Olivier Mehani  <olivier.mehani@nicta.com.au>, (C) 2012-2014
 #
-# Copyright (c) 2012 National ICT Australia (NICTA)
+# Copyright (c) 2012--2014 National ICT Australia (NICTA)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -151,7 +151,7 @@ class PingWrapper
 end #end of class
 
 begin
-  $stderr.puts " INFO ping-oml2: V#{OML4R::VERSION}\n"
+  OML4R.logger.info "ping-oml2 #{OML4R::VERSION}"
   app = PingWrapper.new(ARGV)
   app.start()
   # XXX: Sleep for one second to let OML4R send the remaining data (see comments
@@ -159,7 +159,7 @@ begin
   sleep 1
 rescue Interrupt
 rescue Exception => ex
-  $stderr.puts " ERROR ping-oml2: #{ex}\n"
+  OML4R.logger.error "ping-oml2: #{ex}"
 end
 
 # Local Variables:

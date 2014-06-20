@@ -63,7 +63,7 @@ begin
     op.on("--oml-ch2 URL", "Set destination for Channel 2 [#{ch2.url}]") { |url| ch2.url = url }
   end
 rescue OML4R::MissingArgumentException => mex
-  $stderr.puts mex
+  OML4R.logger.error "oml4r-multiple-channel-example: #{mex}"
   exit
 end
 
