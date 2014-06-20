@@ -69,14 +69,20 @@ class PingWrapper
     @numeric = ''
     @pingio = nil
 
-    leftover = OML4R::init(args, :appName => 'ping') do |argParser|
-      argParser.banner = "Runs the system ping and reports measurements via OML\n Use -h or --help for a list of options\n\n"
-      argParser.on("-a","--dest_addr ADDRESS","Address to ping (the -a switch is optional)") { |address| @addr = address.to_s() }
-      argParser.on("-c","--count NUMBER","Number of pings (default: infinite)"){ |count| @count = "-c #{count.to_i()}"}
-      argParser.on("-i","--interval NUMBER","Interval between pings (seconds)"){ |interval| @interval = "-i #{interval.to_i()}"}
-      argParser.on("-q","--[no]-quiet ","Don't show ping output on the console"){ @verbose = false }
-      argParser.on("-6","--[no]-inet6 ","Use ping6 rather than ping"){ @inet6 = "6"}
-      argParser.on("-n","--[no]-numeric ","No attempt will be made to lookup symbolic names for host addresses"){ @numeric = '-n' }
+    begin
+      leftover = OML4R::init(args, :appName => 'ping') do |argParser|
+	argParser.banner = "Runs the system ping and reports measurements via OML\n Use -h or --help for a list of options\n\n"
+	argParser.on("-a","--dest_addr ADDRESS","Address to ping (the -a switch is optional)") { |address| @addr = address.to_s() }
+	argParser.on("-c","--count NUMBER","Number of pings (default: infinite)"){ |count| @count = "-c #{count.to_i()}"}
+	argParser.on("-i","--interval NUMBER","Interval between pings (seconds)"){ |interval| @interval = "-i #{interval.to_i()}"}
+	argParser.on("-q","--[no]-quiet ","Don't show ping output on the console"){ @verbose = false }
+	argParser.on("-6","--[no]-inet6 ","Use ping6 rather than ping"){ @inet6 = "6"}
+	argParser.on("-n","--[no]-numeric ","No attempt will be made to lookup symbolic names for host addresses"){ @numeric = '-n' }
+      end
+
+    rescue OML4R::MissingArgumentException => ex
+      OML4R.logger.warn "ping-oml2: #{ex}"
+      leftover = []
     end
 
     if @addr.nil?
