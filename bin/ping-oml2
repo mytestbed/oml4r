@@ -152,6 +152,7 @@ class PingWrapper
     return if @pingio.nil?
     # Kill the ping process, which will result in EOFError from ping()
     Process.kill("INT", @pingio.pid)
+    OML4R.close
   end
 
 end #end of class
