@@ -1,0 +1,175 @@
+#!/usr/bin/env ruby
+#
+# Copyright (c) 2009 - 2014 National ICT Australia Limited (NICTA).
+# This software may be used and distributed solely under the terms of the MIT license (License).
+# You should find a copy of the License in LICENSE.TXT or at http://opensource.org/licenses/MIT.
+# By downloading or using this software you accept the terms and the liability disclaimer in the License.
+# ------------------
+#
+# = csv2oml
+#
+# == Description
+#
+# This tool associates an OML Measurement Point (MP) to a CSV file, then turns any
+# new line from that file into an OML Measurement sample and injects it into the
+# MP. It keeps monitoring the CSV file and inject any new line until it is stopped
+# by Ctrl-C (or any other relevant SIGNALs)
+#
+# Example: csv2oml.rb --file X --app-name Y --mp-name Z --no-headers --interval 1
+#
+#   --file PATH           Path to the CSV file to process
+#   --app-name APPNAME    Name of the app which generates the CSV file to process (default to 'csv2oml')
+#   --mp-name MPNAME      Name of the Measurement Point for the CSV file to process (default to 'mp')
+#   --no-headers          When set then do not use the 1st line to name fields/metrics (default unset)
+#   --interval NUMBER     Interval period to check for new lines in the CSV (in second, default 1)
+#
+#   Below are OML4R options (https://github.com/mytestbed/oml4r)
+#
+#   --oml-id id           Name to identify this app instance [undefined]
+#   --oml-domain domain   Name of experimental domain [undefined] *EXPERIMENTAL*
+#   --oml-collect uri     URI of server to send measurements to
+#   --oml-protocol p      Protocol number [4]
+#   --oml-log-level l     Log level used (info: 0 .. debug: 1)
+#   --oml-noop            Do not collect measurements
+#   --oml-config file     File holding OML configuration parameters
+#   --oml-exp-id domain   Obsolescent equivalent to --oml-domain domain
+#   --oml-file localPath  Obsolescent equivalent to --oml-collect file:localPath
+#   --oml-server uri      Obsolescent equivalent to --oml-collect uri
+#   --oml-help            Show this message
+#
+require 'rubygems'
+require 'logger'
+require 'csv'
+
+NAME='csv2oml'
+log = Logger.new(STDOUT)
+log.formatter = proc do |level, time, progname, msg|
+  "#{time.strftime('%y%m%d_%H%M%S')} #{NAME} - #{level} - #{msg}\n"
+end
+
+class CSV2OML
+
+  def initialize(args,log)
+    @log = log
+    @app_name = NAME
+    @mp_name = 'mp'
+    @path = nil
+    @mp_class = nil
+    @headers = true
+    @interval = 1
+    @first_line = true
+    @metrics = []
+
+    # Unfortunately OML4R Policy is that the Application Name cannot be defined
+    # on the command line, and must be defined in the Application Code. While
+    # this makes sense for all other app, here we do not want OML to use csv2oml
+    # as the ID for this app, but rather use the ID of the app that generated
+    # the CSV. Thus we have to manually 'extract' the app name from the command
+    # line.
+    i = args.index('--app-name')
+    unless i.nil?
+      @app_name = args.delete_at(i+1)
+      args.delete_at(i)
+    end
+    @log.info "Using Application Name '#{@app_name}' for this OML data collection"
+
+    # Now let OML4R parse the remaining command line and do its init stuff
+    OML4R::init(args, :appName => @app_name) do |parser|
+      parser.banner=<<-text
+      
+      This tool associates an OML Measurement Point (MP) to a CSV file, then turns any
+      new line from that file into an OML Measurement sample and injects it into the
+      MP. It keeps monitoring the CSV file and inject any new line until it is stopped
+      by Ctrl-C (or any other relevant SIGNALs)\n
+      Example: csv2oml.rb --file X --app-name Y --mp-name Z --no-headers --interval 1\n
+      text
+      parser.on("--file PATH", "Path to the CSV file to process") { |name| @path = name }
+      parser.on("--app-name APPNAME", "Name of the app which generates the CSV file to process (default to 'csv2oml')") { |name| @app_name = name }
+      parser.on("--mp-name MPNAME", "Name of the Measurement Point for the CSV file to process (default to 'mp')") { |name| @mp_name = name }
+      parser.on("--no-headers", "When set then do not use the 1st line to name fields/metrics (default unset)") { @headers = false }     
+      parser.on("--interval NUMBER", "Interval period to check for new lines in the CSV (in second, default 1)") { |i| @interval = i }     
+    end
+
+    # Open the CSV file and monitor it
+    # This will continue until SIGTERM or Ctrl-C are received
+    raise "Missing CSV file path (option '--file')" if @path.nil?
+    @log.info "Monitoring CSV file '#{@path}' (SIGTERM or Ctrl-C to exit)"
+    File.open(@path) do |f|
+      f.extend(File::Tail)
+      f.interval = @interval
+      f.tail { |line| process(line) }
+    end
+  end
+
+  def process(line)
+    line = build_measurement_point(line) if @mp_class.nil?
+    inject_new_sample(line) unless line.nil?
+  end
+
+  def build_measurement_point(line)
+    # First line in the file and headers is true, so use this line as metrics
+    if (@headers && @first_line)
+      @metrics = line.chomp.split(',')
+      # Some checks: get rid of quotes, make sure fields are not numbers
+      @metrics = @metrics.map { |e| e.chomp('"').reverse.chomp('"').reverse } 
+      @metrics = @metrics.map { |e| e.chomp("'").reverse.chomp("'").reverse }
+      @metrics.each { |e| raise "Cannot create MP! Invalid metric name '#{e}' in CSV header '#{@metrics}'!" if e.match(/\A[+-]?\d+?(\.\d+)?\Z/) }
+      @first_line = false
+      return nil
+    end
+    # Second line in the file or First line but headers is false
+    # Then use this line to determine the OML types for the MP
+    types = []
+    parsed_line = CSV.parse(line,{:converters => :numeric})[0]
+    # Only support a subset of OML's supported type, as there is no standard
+    # way to tell from a CSV record if 'true' is meant to be a boolean or a 
+    # string, same goes for GUIDs which OML support 
+    parsed_line.each do |v|
+      case v.class.to_s.to_sym
+      when :Fixnum
+        types << :int32
+      when :Bignum
+        types << :int64 
+      when :Float
+        types << :double 
+      else
+        types << :string
+      end
+    end
+    # Make sure with have names for the metrics of this MP
+    parsed_line.length.times { |i| @metrics << "V#{i}"} if @metrics.empty?
+    # Sanity check
+    raise "Cannot create MP! Size of defined metrics do not match size of a sample!" if @metrics.length != types.length
+    # Now define the new MP
+    @mp_class = Class.new(OML4R::MPBase) 
+    @mp_class.name(@mp_name)
+    @metrics.each_index { |i| @mp_class.param(@metrics[i].to_sym, :type => types[i].to_sym) }
+    @first_line = false
+    @log.info "Defined MP '#{@mp_name}' (OML table name: '#{@app_name}_#{@mp_name}') "+
+              "with metrics: #{@metrics.map {|m| "#{m} (#{types[@metrics.index(m)]})" }.join(', ')}"
+    return line
+  end
+
+  def inject_new_sample(line)
+    parsed_line = CSV.parse(line,{:converters => :numeric})[0]
+    @mp_class.inject(*parsed_line)
+  end
+
+end
+
+# Apps main entry...
+begin
+  require 'oml4r'
+  require 'file-tail'
+  app = CSV2OML.new(ARGV,log)
+  rescue LoadError => ex
+    log.error "Missing library! Try running 'gem install #{ex.to_s.split[-1]}' (original error: #{ex}) "
+  rescue SystemExit
+  rescue SignalException
+    log.info "#{NAME} stopped."
+  rescue Exception => ex
+    log.error "#{ex.class} - #{ex}\n\n"
+  # Uncomment the next line to get more info on errors
+  # log.error "Trace - #{ex.backtrace.join("\n\t")}"
+end
+OML4R::close()
