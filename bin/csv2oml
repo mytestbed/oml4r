@@ -13,7 +13,10 @@
 # This tool associates an OML Measurement Point (MP) to a CSV file, then turns any
 # new line from that file into an OML Measurement sample and injects it into the
 # MP. It keeps monitoring the CSV file and inject any new line until it is stopped
-# by Ctrl-C (or any other relevant SIGNALs)
+# by Ctrl-C (or any other relevant SIGNALs). The MP definition is dynamically
+# generated based on the head of CSV file (with or without header). In addition,
+# the version of this tool and its execution start and termination POSIX dates are
+# recorded as OML metadata to the defined MP.
 #
 # Example: csv2oml.rb --file X --app-name Y --mp-name Z --no-headers --interval 1
 #
@@ -42,12 +45,15 @@ require 'logger'
 require 'csv'
 
 NAME='csv2oml'
+VERSION="1.0"
 log = Logger.new(STDOUT)
 log.formatter = proc do |level, time, progname, msg|
   "#{time.strftime('%y%m%d_%H%M%S')} #{NAME} - #{level} - #{msg}\n"
 end
 
 class CSV2OML
+
+  attr_reader :mp_class
 
   def initialize(args,log)
     @log = log
@@ -80,7 +86,10 @@ class CSV2OML
       This tool associates an OML Measurement Point (MP) to a CSV file, then turns any
       new line from that file into an OML Measurement sample and injects it into the
       MP. It keeps monitoring the CSV file and inject any new line until it is stopped
-      by Ctrl-C (or any other relevant SIGNALs)\n
+      by Ctrl-C (or any other relevant SIGNALs). The MP definition is dynamically
+      generated based on the head of CSV file (with or without header). In addition,
+      the version of this tool and its execution start and termination POSIX dates are
+      recorded as OML metadata to the defined MP.\n
       Example: csv2oml.rb --file X --app-name Y --mp-name Z --no-headers --interval 1\n
       text
       parser.on("--file PATH", "Path to the CSV file to process") { |name| @path = name }
@@ -88,8 +97,11 @@ class CSV2OML
       parser.on("--mp-name MPNAME", "Name of the Measurement Point for the CSV file to process (default to 'mp')") { |name| @mp_name = name }
       parser.on("--no-headers", "When set then do not use the 1st line to name fields/metrics (default unset)") { @headers = false }     
       parser.on("--interval NUMBER", "Interval period to check for new lines in the CSV (in second, default 1)") { |i| @interval = i }     
+      parser.on_tail("--version", "Show version number") { $stderr.puts "#{NAME} - version #{VERSION}"; exit }
     end
+  end
 
+  def start()
     # Open the CSV file and monitor it
     # This will continue until SIGTERM or Ctrl-C are received
     raise "Missing CSV file path (option '--file')" if @path.nil?
@@ -103,7 +115,10 @@ class CSV2OML
 
   def process(line)
     line = build_measurement_point(line) if @mp_class.nil?
-    inject_new_sample(line) unless line.nil?
+    unless line.nil?
+      parsed_line = CSV.parse(line,{:converters => :numeric})[0]
+      @mp_class.inject(*parsed_line)
+    end
   end
 
   def build_measurement_point(line)
@@ -147,14 +162,11 @@ class CSV2OML
     @first_line = false
     @log.info "Defined MP '#{@mp_name}' (OML table name: '#{@app_name}_#{@mp_name}') "+
               "with metrics: #{@metrics.map {|m| "#{m} (#{types[@metrics.index(m)]})" }.join(', ')}"
+    @mp_class.inject_metadata('csv2oml_version',VERSION)
+    @mp_class.inject_metadata('csvfile',@path)
+    @mp_class.inject_metadata('posix_start_date',Time.now.to_i)
     return line
   end
-
-  def inject_new_sample(line)
-    parsed_line = CSV.parse(line,{:converters => :numeric})[0]
-    @mp_class.inject(*parsed_line)
-  end
-
 end
 
 # Apps main entry...
@@ -162,14 +174,17 @@ begin
   require 'oml4r'
   require 'file-tail'
   app = CSV2OML.new(ARGV,log)
-  rescue LoadError => ex
-    log.error "Missing library! Try running 'gem install #{ex.to_s.split[-1]}' (original error: #{ex}) "
-  rescue SystemExit
-  rescue SignalException
-    log.info "#{NAME} stopped."
-  rescue Exception => ex
-    log.error "#{ex.class} - #{ex}\n\n"
+  app.start
+rescue LoadError => ex
+  log.error "Missing library! Try running 'gem install #{ex.to_s.split[-1]}' (original error: #{ex}) "
+rescue SystemExit
+rescue SignalException
+  log.info "#{NAME} stopped."
+rescue Exception => ex
+  log.error "#{ex.class} - #{ex}\n\n"
   # Uncomment the next line to get more info on errors
-  # log.error "Trace - #{ex.backtrace.join("\n\t")}"
+  #log.error "Trace - #{ex.backtrace.join("\n\t")}"
+ensure
+  app.mp_class.inject_metadata('posix_end_date',Time.now.to_i) unless (app.nil? || app.mp_class.nil?)
 end
 OML4R::close()
