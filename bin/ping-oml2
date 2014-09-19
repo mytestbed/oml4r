@@ -85,7 +85,7 @@ class PingWrapper
       leftover = []
     end
 
-    if @addr.nil?
+    if @addr.nil? and not leftover.nil?
       if leftover.length > 0
         @addr = leftover[0]
       else
