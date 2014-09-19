@@ -366,6 +366,7 @@ module OML4R
     omlConfigFile = nil
 
     if argv
+      OML4R.logger.debug "ARGV: #{argv.inspect}"
       # Create a new Parser for the command line
       op = OptionParser.new
       # Include the definition of application's specific arguments
@@ -376,7 +377,8 @@ module OML4R
       op.on("--oml-collect uri", "URI of server to send measurements to") { |u|  opts[:omlCollectUri] = u }
       op.on("--oml-protocol p", "Protocol number [#{OML4R::DEF_PROTOCOL}]") { |l| opts[:protocol] = l.to_i }
       op.on("--oml-log-level l", "Log level used (info: 0 .. debug: 1)") { |l| OML4R.logger.level = 1 - l.to_i }
-      op.on("--oml-noop", "Do not collect measurements") { noop = true }
+      op.on("--oml-noop", "Do not collect measurements") { OML4R.logger.info "OML reporting disabled from command line"
+							   return  }
       op.on("--oml-config file", "File holding OML configuration parameters") { |f| omlConfigFile = f }
       op.on("--oml-exp-id domain", "Obsolescent equivalent to --oml-domain domain") { |name|
         opts[:domain] = name
@@ -393,6 +395,9 @@ module OML4R
       op.on_tail("--oml-help", "Show this message") { $stderr.puts op; exit }
       # XXX: This should be set by the application writer, not the command line
       #op.on("--oml-appid APPID", "Application ID for OML [#{appName || 'undefined'}] *EXPERIMENTAL*") { |name| appID = name }
+      unless opts[:appName]
+	raise MissingArgumentException.new 'OML4R: Missing :appName in application code!'
+      end
 
       # Now parse the command line
       rest = op.parse(argv)
@@ -400,28 +405,27 @@ module OML4R
         # give the app a chance to fix missing parameters
         opts[:afterParse].call(opts)
       end
-     OML4R.logger.debug "ARGV: #{argv.inspect}"
-     return if noop
-     # Parameters in OML config file takes precedence
-     unless omlConfigFile.nil? 
-       f = File.open(omlConfigFile, 'r')
-       f.each_line do |l|
-         d = l[/.*experiment=["']([^"']*)/,1]
-         opts[:domain] = d if d
-         d = l[/.*domain=["']([^"']*)/,1]
-         opts[:domain] = d if d
-         i = l[/.*id=["']([^"']*)/,1]
-         opts[:nodeID] = i if i
-         u = l[/.*url=["']([^"']*)/,1]
-         opts[:omlCollectUri] = u if u
-       end
-       f.close
-     end
+      
+      # Parameters in OML config file takes precedence
+      unless omlConfigFile.nil? 
+	f = File.open(omlConfigFile, 'r')
+	f.each_line do |l|
+	  d = l[/.*experiment=["']([^"']*)/,1]
+	  opts[:domain] = d if d
+	  d = l[/.*domain=["']([^"']*)/,1]
+	  opts[:domain] = d if d
+	  i = l[/.*id=["']([^"']*)/,1]
+	  opts[:nodeID] = i if i
+	  u = l[/.*url=["']([^"']*)/,1]
+	  opts[:omlCollectUri] = u if u
+	end
+	f.close
+      end
     end
  
-   unless opts[:nodeID]
+    unless opts[:nodeID]
       begin
-        # Create a default nodeID by concatinating the local hostname with the process ID
+        # Create a default nodeID by concatenating the local hostname with the process ID
         hostname = nil
         begin
           #hostname = Socket.gethostbyname(Socket.gethostname)[0]
@@ -436,12 +440,11 @@ module OML4R
         end
       end
       unless opts[:nodeID]
-        raise MissingArgumentException.new 'OML4R: Missing values for parameter :nodeID (--oml-id)'
+        raise MissingArgumentException.new 'OML4R: Missing values for parameter :nodeID (--oml-id, OML_ID)'
       end
     end
-
-    unless opts[:domain] && opts[:appName]
-      raise MissingArgumentException.new 'OML4R: Missing values for parameters :domain (--oml-domain) or :appName (in code)!'
+    unless opts[:domain]
+      raise MissingArgumentException.new 'OML4R: Missing values for parameter :domain (--oml-domain, OML_DOMAIN)!'
     end
 
     # Set a default collection URI if nothing has been specified
