@@ -5,7 +5,11 @@
 # ------------------
 
 module OML4R
+<<<<<<< HEAD
   VERSION = "2.10.4"
+=======
+  VERSION = "2.11.0"
+>>>>>>> Major refactoring
   VERSION_STRING = "OML4R Client V#{VERSION}"
   COPYRIGHT = "Copyright 2009-2014, NICTA"
 end
