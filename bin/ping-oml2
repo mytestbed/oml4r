@@ -32,8 +32,11 @@
 require 'rubygems'
 require 'oml4r'
 
+@@bin = "ping"
+@@appname = @@bin + "-oml2"
+
 class MPStat < OML4R::MPBase
-  name :ping
+  name @@bin
   param :dest_addr, :type => :string
   param :ttl, :type => :uint32
   param :rtt, :type => :double
@@ -67,10 +70,10 @@ class PingWrapper
     @verbose = true
     @inet6 = ''
     @numeric = ''
-    @pingio = nil
+    @binio = nil
 
     begin
-      leftover = OML4R::init(args, :appName => 'ping') do |argParser|
+      leftover = OML4R::init(args, :appName => @@bin) do |argParser|
 	argParser.banner = "Runs the system ping and reports measurements via OML\n Use -h or --help for a list of options\n\n"
 	argParser.on("-a","--dest_addr ADDRESS","Address to ping (the -a switch is optional)") { |address| @addr = address.to_s() }
 	argParser.on("-c","--count NUMBER","Number of pings (default: infinite)"){ |count| @count = "-c #{count.to_i()}"}
@@ -81,7 +84,7 @@ class PingWrapper
       end
 
     rescue OML4R::MissingArgumentException => ex
-      OML4R.logger.warn "ping-oml2: #{ex}"
+      OML4R.logger.warn "#{@@appname}: #{ex}"
       leftover = []
     end
 
@@ -116,17 +119,17 @@ class PingWrapper
     end
   end
 
-  def ping()
-    @pingio = IO.popen("ping#{@inet6} #{@numeric} #{@count} #{@interval} #{@addr}")
+  def run()
+    @binio = IO.popen("#{@@bin}#{@inet6} #{@numeric} #{@count} #{@interval} #{@addr}")
     while true
-      row = @pingio.readline
+      row = @binio.readline
       puts row if @verbose
       process_output(row)
     end
   end
 
   def start()
-    return if not @pingio.nil?
+    return if not @binio.nil?
 
     # Handle for OMF's 'exit' command
     a = Thread.new do
@@ -142,22 +145,22 @@ class PingWrapper
     Signal.trap("TERM", stop)
 
     begin
-      ping
+      run
     rescue EOFError
       # This error is expected
     end
   end
 
   def stop()
-    return if @pingio.nil?
+    return if @binio.nil?
     # Kill the ping process, which will result in EOFError from ping()
-    Process.kill("INT", @pingio.pid)
+    Process.kill("INT", @binio.pid)
   end
 
 end #end of class
 
 begin
-  OML4R.logger.info "ping-oml2 #{OML4R::VERSION}"
+  OML4R.logger.info "#{@@appname} #{OML4R::VERSION}"
   app = PingWrapper.new(ARGV)
   app.start()
   # XXX: Sleep for one second to let OML4R send the remaining data (see comments
@@ -165,7 +168,7 @@ begin
   sleep 1
 rescue Interrupt
 rescue Exception => ex
-  OML4R.logger.error "ping-oml2: #{ex}"
+  OML4R.logger.error "#{@@appname}: #{ex}"
 end
 
 # Local Variables:
