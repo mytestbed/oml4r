@@ -166,7 +166,9 @@ begin
   # XXX: Sleep for one second to let OML4R send the remaining data (see comments
   # in #1485)
   sleep 1
-rescue Interrupt, SystemExit
+rescue Interrupt
+rescue SystemExit
+  OML4R.close
 rescue Exception => ex
   OML4R.logger.error "#{@@appname}: #{ex}"
 end
