@@ -392,7 +392,7 @@ module OML4R
         opts[:omlCollectUri] = "#{u}"
         OML4R.logger.warn "Option --oml-server is getting deprecated; please use '--oml-collect #{opts[:omlCollectUri]}' instead"
       }
-      op.on_tail("--oml-help", "Show this message") { $stderr.puts op; exit }
+      op.on_tail("--oml-help", "Show this message") { $stderr.puts op }
       # XXX: This should be set by the application writer, not the command line
       #op.on("--oml-appid APPID", "Application ID for OML [#{appName || 'undefined'}] *EXPERIMENTAL*") { |name| appID = name }
       unless opts[:appName]

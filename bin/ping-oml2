@@ -130,20 +130,6 @@ class PingWrapper
 
   def start()
     return if not @binio.nil?
-
-    # Handle for OMF's 'exit' command
-    a = Thread.new do
-      $stdin.each do |line|
-	if /^exit/ =~ line
-	  Process.kill("INT", 0)
-	end
-      end
-    end
-
-    # Handle Ctrl+C and OMF's SIGTERM
-    Signal.trap("INT", stop )
-    Signal.trap("TERM", stop)
-
     begin
       run
     rescue EOFError
@@ -161,12 +147,26 @@ end #end of class
 
 begin
   OML4R.logger.info "#{@@appname} #{OML4R::VERSION}"
+
+  # Handle for OMF's 'exit' command
+  a = Thread.new do
+    $stdin.each do |line|
+      if /^exit/ =~ line
+	Process.kill("INT", 0)
+      end
+    end
+  end
+
+  # Handle Ctrl+C and OMF's SIGTERM
+  Signal.trap("INT") { stop }
+  Signal.trap("TERM") { stop }
+
   app = PingWrapper.new(ARGV)
   app.start()
   # XXX: Sleep for one second to let OML4R send the remaining data (see comments
   # in #1485)
   sleep 1
-rescue Interrupt
+rescue Interrupt, SystemExit
 rescue Exception => ex
   OML4R.logger.error "#{@@appname}: #{ex}"
 end
