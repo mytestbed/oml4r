@@ -148,6 +148,12 @@ end #end of class
 begin
   OML4R.logger.info "#{@@appname} #{OML4R::VERSION}"
 
+  app = PingWrapper.new(ARGV)
+
+  # Handle Ctrl+C and OMF's SIGTERM
+  Signal.trap("INT") { app.stop }
+  Signal.trap("TERM") { app.stop }
+ 
   # Handle for OMF's 'exit' command
   a = Thread.new do
     $stdin.each do |line|
@@ -157,11 +163,6 @@ begin
     end
   end
 
-  # Handle Ctrl+C and OMF's SIGTERM
-  Signal.trap("INT") { stop }
-  Signal.trap("TERM") { stop }
-
-  app = PingWrapper.new(ARGV)
   app.start()
   # XXX: Sleep for one second to let OML4R send the remaining data (see comments
   # in #1485)
