@@ -6,6 +6,10 @@
 
 module OML4R
 
+  # NOTE: The version number is now derived automatically from Git tags. This
+  # file needs not be modified.
+  # To create a new release, use git tag -asm "DESC" v2.m.r (make sure the
+  # feature set corresponds to that of liboml2-2.m).
   def self.version_of(name)
     git_tag  = `git describe --tags 2> /dev/null`.chomp
     git_root = `git rev-parse --show-toplevel 2> /dev/null`.chomp
