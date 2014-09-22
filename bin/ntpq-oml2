@@ -85,14 +85,12 @@ end
 if not defined? MP.cleanup
   def MP.cleanup(match)
     return if match.nil?
-    puts match
     if match[:when].include? "d"
       # Convert the MatchData into a Hash so we can overwrite it; this conserves
       # the assumption that match[0] is the full string that matched; if other
       # cleanup is needed, this should be done outside of this conditional
       match = { :MatchData => match[0] }.merge(Hash[match.names.zip(match.captures)])
 
-      puts match
       match[:when] = "#{match[:when].to_i * 86400}"
     end
   end
