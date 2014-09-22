@@ -65,6 +65,7 @@ class PingWrapper
 
   def initialize(args)
     @addr = nil
+    @broadcast = nil
     @count = ''
     @interval = ''
     @verbose = true
@@ -76,6 +77,7 @@ class PingWrapper
       leftover = OML4R::init(args, :appName => @@bin) do |argParser|
 	argParser.banner = "Runs the system ping and reports measurements via OML\n Use -h or --help for a list of options\n\n"
 	argParser.on("-a","--dest_addr ADDRESS","Address to ping (the -a switch is optional)") { |address| @addr = address.to_s() }
+	argParser.on("-b","--broadcast","Allow pinging a broadcast address") { @broadcast ='-b' }
 	argParser.on("-c","--count NUMBER","Number of pings (default: infinite)"){ |count| @count = "-c #{count.to_i()}"}
 	argParser.on("-i","--interval NUMBER","Interval between pings (seconds)"){ |interval| @interval = "-i #{interval.to_i()}"}
 	argParser.on("-q","--[no]-quiet ","Don't show ping output on the console"){ @verbose = false }
@@ -120,7 +122,7 @@ class PingWrapper
   end
 
   def run()
-    @binio = IO.popen("#{@@bin}#{@inet6} #{@numeric} #{@count} #{@interval} #{@addr}")
+    @binio = IO.popen("#{@@bin}#{@inet6} #{@numeric} #{@count} #{@interval} #{@broadcast} #{@addr}")
     while true
       row = @binio.readline
       puts row if @verbose
