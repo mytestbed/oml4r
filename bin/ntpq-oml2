@@ -28,7 +28,7 @@
 #
 
 require 'rubygems'
-require '../lib/oml4r.rb'
+require 'oml4r'
 
 @@bin = "ntpq"
 @@binopt = "-p -n"
