@@ -5,7 +5,23 @@
 # ------------------
 
 module OML4R
-  VERSION = "2.10.4"
+
+  def self.version_of(name)
+    git_tag  = `git describe --tags 2> /dev/null`.chomp
+    git_root = `git rev-parse --show-toplevel 2> /dev/null`.chomp
+    gem_v = Gem.loaded_specs[name].version.to_s rescue '0.0.0'
+
+    # Not in a development environment or git not present
+    if git_root != File.absolute_path("#{File.dirname(__FILE__)}/../../") || git_tag.empty?
+      gem_v
+    else
+      git_tag.gsub(/-/, '.').gsub(/^v/, '')
+    end
+  end
+
+  VERSION = version_of('oml4r')
   VERSION_STRING = "OML4R Client V#{VERSION}"
   COPYRIGHT = "Copyright 2009-2014, NICTA"
 end
+
+# vim: ft=ruby:sw=2
