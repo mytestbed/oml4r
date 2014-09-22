@@ -1,0 +1,198 @@
+#!/usr/bin/env ruby
+#
+# OML4R wrapper for ntpq
+#
+# This application runs the system ntpq -p -n, parses its output and reports the
+# measurements via OML
+#
+# Author: Olivier Mehani  <olivier.mehani@nicta.com.au>, (C) 2014
+# Copyright (c) 2014 National ICT Australia (NICTA)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+
+require 'rubygems'
+require '../lib/oml4r.rb'
+
+@@bin = "ntpq"
+@@binopt = "-p -n"
+@@appname = @@bin + "-oml2"
+# XXX: if when is expressed in days, we need to rescale it, see MP.cleanup
+@@regex = /^(?<rtype>\*|#|o|\+|x|.|-| )(?<remote>[^\s]+)\s+(?<refid>[^\s]+)\s+(?<stratum>\d+)\s+(?<type>l|u|m|b|-)\s+(?<when>\d+d?|-})\s+(?<poll>\d+)\s+(?<reach>\d+)\s+(?<delay>(\d|\.)+)\s+(?<offset>-?(\d|\.)+)\s+(?<jitter>(\d|\.)+)$/ 
+
+# See [0] for explanations of the fields
+# [rtype]remote, refid, st[ratum], t[ype], when, poll, reach, delay, offset, jitter [or dispersion]
+# [0] http://h30499.www3.hp.com/t5/System-Administration/Interpreting-NTPQ-output/m-p/3616540/highlight/true#M235154
+class MP < OML4R::MPBase
+  name @@bin
+
+  param :rtype, :type => :string	# 
+  # Character that may be before hostname:
+  # * indicates the current synchronization source.
+  # # indicates that the host is selected for synchronization, but distance from the
+  #   host to the server exceeds the maximum value.
+  # o indicates that the host is selected for synchronization, and the PPS signal is
+  #   in use.
+  # + indicates the host included in the final synchronization selection set.
+  # x indicates that the host is the designated false ticker by the intersection
+  #   algorithm.
+  # . indicates that the host is selected from the end of the candidate list.
+  # - indicates a host discarded by the clustering algorithm.
+  # blank indicates a host is discarded due to high stratum and/or failed sanity
+  #   checks.
+
+  param :remote, :type => :string	# IP address of host
+  param :refid, :type => :string	# source of synchronisation
+  param :stratum, :type => :uint32	# stratum level of the host
+
+  param :type, :type => :string		# type of host
+  # l local (such as a GPS clock)
+  # u unicast (this is the common type)
+  # m multicast
+  # b broadcast
+  # - netaddr (usually 0)
+
+  param :when, :type => :uint32		# number of seconds passed since the remote host response [s]
+  param :poll, :type => :uint32		# polling interval to the remote host [s]
+  param :reach, :type => :uint32	# 8-bit shift register of reach attempts
+  param :delay, :type => :double	# round trip time [ms]
+  param :offset, :type => :double	# time difference between server and client [ms]
+  param :jitter, :type => :double	# difference in the offset measurement between two samples [ms]
+end
+
+# XXX: OML4R should allow support for REs, and create a match function per MP
+if not defined? MP.match
+  def MP.match(row)
+    cleanup(@@regex.match(row))
+  end
+end
+if not defined? MP.cleanup
+  def MP.cleanup(match)
+    return if match.nil?
+    puts match
+    if match[:when].include? "d"
+      # Convert the MatchData into a Hash so we can overwrite it; this conserves
+      # the assumption that match[0] is the full string that matched; if other
+      # cleanup is needed, this should be done outside of this conditional
+      match = { :MatchData => match[0] }.merge(Hash[match.names.zip(match.captures)])
+
+      puts match
+      match[:when] = "#{match[:when].to_i * 86400}"
+    end
+  end
+end
+
+class Wrapper
+  attr_accessor  :loop_interval
+
+  def initialize(args)
+    @binio = nil
+    @verbose = true
+    @leftover = []
+    @loop_interval = 0
+
+    begin
+      @leftover = OML4R::init(args, :appName => @@bin) do |argParser|
+	argParser.banner = "Runs the system #{@@bin}#{(@@binopt.nil?)?"":" (#{@@binopt})"} and reports measurements via OML\n Use -h or --help for a list of options\n\n"
+	argParser.on("-l","--loop-interval NUMBER","Interval between runs (seconds)"){ |interval| @loop_interval = interval.to_i()}
+	argParser.on("-q","--[no]-quiet ","Don't show #{@@bin} output on the console"){ @verbose = false }
+      end
+
+    rescue OML4R::MissingArgumentException => ex
+      OML4R.logger.warn "#{@@appname}: #{ex}"
+    end
+
+  end
+
+  def process_output(row)
+    if not (parse = MP.match(row)).nil?  # One sample
+	   MP.inject(*parse[1..-1])
+    end
+  end
+
+  def run()
+    @binio = IO.popen("#{@@bin} #{@@binopt} #{(@leftover.nil?)?"":@leftover.join(' ')}")
+    while true
+      row = @binio.readline
+      puts row if @verbose
+      process_output(row)
+    end
+  end
+
+  def start()
+    return if not @binio.nil?
+
+    begin
+      run
+    rescue EOFError
+      @binio.close
+      @binio = nil
+    end
+  end
+
+  def stop()
+    @loop_interval = 0
+    return if @binio.nil?
+    # Kill the ping process, which will result in EOFError from ping()
+    Process.kill("INT", @binio.pid)
+    @binio.close
+    @binio = nil
+  end
+
+end #end of class
+
+begin
+  OML4R.logger.info "#{@@appname} #{OML4R::VERSION}"
+
+  # Handle for OMF's 'exit' command
+  a = Thread.new do
+    $stdin.each do |line|
+      if /^exit/ =~ line
+	Process.kill("INT", 0)
+      end
+    end
+  end
+
+  # Handle Ctrl+C and OMF's SIGTERM
+  Signal.trap("INT") { app.stop }
+  Signal.trap("TERM") { app.stop }
+
+  app = Wrapper.new(ARGV)
+  while true
+    app.start
+    if app.loop_interval > 0
+      sleep app.loop_interval
+    else
+      exit
+    end
+  end
+  # XXX: Sleep for one second to let OML4R send the remaining data (see comments
+  # in #1485)
+  sleep 1
+rescue Interrupt
+rescue SystemExit
+  OML4R.close
+rescue Exception => ex
+  OML4R.logger.error "#{@@appname}: #{ex}"
+end
+
+# Local Variables:
+# mode:ruby
+# End:
+# vim: ft=ruby:sw=2
