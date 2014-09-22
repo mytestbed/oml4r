@@ -5,9 +5,9 @@ require "oml4r/version"
 
 Gem::Specification.new do |gem|
   gem.authors       = ["NICTA"]
-  gem.email         = ["oml-user@lists.nicta.com.au"]
-  gem.description   = ["Simple OML client library and applications for Ruby"]
-  gem.summary       = ["This is a simple client library for OML which does not use liboml2 and its filters, but connects directly to the server using the +text+ protocol.  User can use this library to create ruby applications which can send measurement to the OML collection server. The gem ships with some example applications."]
+  gem.email         = "oml-user@lists.nicta.com.au"
+  gem.summary= "Simple OML client library and applications for Ruby"
+  gem.description= "This is a simple client library for OML which does not use liboml2 and its filters, but connects directly to the server using the +text+ protocol.  User can use this library to create ruby applications which can send measurement to the OML collection server. The gem ships with some example applications."
   gem.homepage      = "http://oml.mytestbed.net"
 
   # ls-files won't work in VPATH builds;
