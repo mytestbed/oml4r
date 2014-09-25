@@ -30,7 +30,8 @@ reports the measurements via OML
 		:type => :boolean)
 
   a.defMeasurement('ping') do |m|
-    m.defMetric('dest_addr',:string)
+    m.defMetric('remote',:string)
+    m.defMetric('seq',:uint32)
     m.defMetric('ttl',:uint32)
     m.defMetric('rtt',:double)
     m.defMetric('rtt_unit',:string)
