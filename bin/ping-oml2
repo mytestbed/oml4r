@@ -32,11 +32,11 @@
 require 'rubygems'
 require 'oml4r'
 
-@@bin = "ping"
-@@appname = @@bin + "-oml2"
+$bin = "ping"
+$appname = $bin + "-oml2"
 
 class MPStat < OML4R::MPBase
-  name @@bin
+  name $bin
   param :remote, :type => :string
   param :seq, :type => :uint32
   param :ttl, :type => :uint32
@@ -75,7 +75,7 @@ class PingWrapper
     @binio = nil
 
     begin
-      leftover = OML4R::init(args, :appName => @@bin) do |argParser|
+      leftover = OML4R::init(args, :appName => $bin) do |argParser|
 	argParser.banner = "Runs the system ping and reports measurements via OML\n Use -h or --help for a list of options\n\n"
 	argParser.on("-a","--dest_addr ADDRESS","Address to ping (the -a switch is optional)") { |address| @addr = address.to_s() }
 	argParser.on("-b","--broadcast","Allow pinging a broadcast address") { @broadcast ='-b' }
@@ -87,7 +87,7 @@ class PingWrapper
       end
 
     rescue OML4R::MissingArgumentException => ex
-      OML4R.logger.warn "#{@@appname}: #{ex}"
+      OML4R.logger.warn "#{$appname}: #{ex}"
       leftover = []
     end
 
@@ -131,7 +131,7 @@ class PingWrapper
   end
 
   def run()
-    @binio = IO.popen("#{@@bin}#{@inet6} #{@numeric} #{@count} #{@interval} #{@broadcast} #{@addr}")
+    @binio = IO.popen("#{$bin}#{@inet6} #{@numeric} #{@count} #{@interval} #{@broadcast} #{@addr}")
     while true
       row = @binio.readline
       puts row if @verbose
@@ -157,7 +157,7 @@ class PingWrapper
 end #end of class
 
 begin
-  OML4R.logger.info "#{@@appname} #{OML4R::VERSION}"
+  OML4R.logger.info "#{$appname} #{OML4R::VERSION}"
 
   app = PingWrapper.new(ARGV)
 
@@ -182,7 +182,7 @@ rescue Interrupt
 rescue SystemExit
   OML4R.close
 rescue Exception => ex
-  OML4R.logger.error "#{@@appname}: #{ex}"
+  OML4R.logger.error "#{$appname}: #{ex}"
 end
 
 # Local Variables:

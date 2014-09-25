@@ -30,9 +30,9 @@
 require 'rubygems'
 require 'oml4r'
 
-@@bin = "ntpq"
-@@binopt = "-p -n"
-@@appname = @@bin + "-oml2"
+$bin = "ntpq"
+$binopt = "-p -n"
+$appname = $bin + "-oml2"
 # XXX: if when is expressed in days, we need to rescale it, see MP.cleanup
 @@regex = /^(?<rtype>\*|#|o|\+|x|.|-| )(?<remote>[^\s]+)\s+(?<refid>[^\s]+)\s+(?<stratum>\d+)\s+(?<type>l|u|m|b|-)\s+(?<when>\d+d?|-})\s+(?<poll>\d+)\s+(?<reach>\d+)\s+(?<delay>(\d|\.)+)\s+(?<offset>-?(\d|\.)+)\s+(?<jitter>(\d|\.)+)$/ 
 
@@ -40,7 +40,7 @@ require 'oml4r'
 # [rtype]remote, refid, st[ratum], t[ype], when, poll, reach, delay, offset, jitter [or dispersion]
 # [0] http://h30499.www3.hp.com/t5/System-Administration/Interpreting-NTPQ-output/m-p/3616540/highlight/true#M235154
 class MP < OML4R::MPBase
-  name @@bin
+  name $bin
 
   param :rtype, :type => :string	# 
   # Character that may be before hostname:
@@ -109,14 +109,14 @@ class Wrapper
     @loop_interval = 0
 
     begin
-      @leftover = OML4R::init(args, :appName => @@bin) do |argParser|
-	argParser.banner = "Runs the system #{@@bin}#{(@@binopt.nil?)?"":" (#{@@binopt})"} and reports measurements via OML\n Use -h or --help for a list of options\n\n"
+      @leftover = OML4R::init(args, :appName => $bin) do |argParser|
+	argParser.banner = "Runs the system #{$bin}#{($binopt.nil?)?"":" (#{$binopt})"} and reports measurements via OML\n Use -h or --help for a list of options\n\n"
 	argParser.on("-l","--loop-interval NUMBER","Interval between runs (seconds)"){ |interval| @loop_interval = interval.to_i()}
-	argParser.on("-q","--[no]-quiet ","Don't show #{@@bin} output on the console"){ @verbose = false }
+	argParser.on("-q","--[no]-quiet ","Don't show #{$bin} output on the console"){ @verbose = false }
       end
 
     rescue OML4R::MissingArgumentException => ex
-      OML4R.logger.warn "#{@@appname}: #{ex}"
+      OML4R.logger.warn "#{$appname}: #{ex}"
     end
 
   end
@@ -128,7 +128,7 @@ class Wrapper
   end
 
   def run()
-    @binio = IO.popen("#{@@bin} #{@@binopt} #{(@leftover.nil?)?"":@leftover.join(' ')}")
+    @binio = IO.popen("#{$bin} #{$binopt} #{(@leftover.nil?)?"":@leftover.join(' ')}")
     while true
       row = @binio.readline
       puts row if @verbose
@@ -159,7 +159,7 @@ class Wrapper
 end #end of class
 
 begin
-  OML4R.logger.info "#{@@appname} #{OML4R::VERSION}"
+  OML4R.logger.info "#{$appname} #{OML4R::VERSION}"
 
   app = Wrapper.new(ARGV)
 
@@ -191,7 +191,7 @@ rescue Interrupt
 rescue SystemExit
   OML4R.close
 rescue Exception => ex
-  OML4R.logger.error "#{@@appname}: #{ex}"
+  OML4R.logger.error "#{$appname}: #{ex}"
 end
 
 # Local Variables:
