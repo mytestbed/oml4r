@@ -10,8 +10,8 @@ defApplication('signalgen') do |a|
   a.binary_path = "/usr/local/bin/signalgen"
   a.description = "A simple signal generator reporting values into OML"
 
-  a.defProperty('frequency', 'Signal frequency [Hz]', '-f', :type => :numeric)
-  a.defProperty('increment', 'Increment angle between samples [rad]', '-i', :type => :numeric)
+  a.defProperty('frequency', 'Measurement frequency [Hz]', '-f', :type => :numeric)
+  a.defProperty('increment', 'Increment angle between samples [degree]', '-i', :type => :numeric)
   a.defProperty('samples', 'Number of samples to generate', '-n', :type => :numeric)
 
   a.defMeasurement('sin') do |m|

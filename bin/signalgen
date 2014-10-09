@@ -21,7 +21,7 @@ APPNAME = 'signalgen'
 DEF_ODOMAIN = 'foo'
 DEF_OCOLLECT = 'file:-'
 DEF_FREQ = 2.0 # Hz
-DEF_INCREMENT = 15 # rad
+DEF_INCREMENT = 15 # degree
 DEF_SAMPLE = 500 # samples
 
 # Define our Measurement Points
@@ -48,8 +48,8 @@ begin
   @sample = DEF_SAMPLE
   OML4R::init(ARGV, opts) do |ap|
     ap.banner = "A simple OML4R example, which generates some signal values."
-    ap.on("-f","--frequency F","Signal frequency [Hz]") { |f| @freq = f.to_f }
-    ap.on("-i","--increment A","Increment angle between samples [rad]") { |a| @inc = a.to_i }
+    ap.on("-f","--frequency F","Measurement frequency [Hz]") { |f| @freq = f.to_f }
+    ap.on("-i","--increment A","Increment angle between samples [degree]") { |a| @inc = a.to_i }
     ap.on("-n","--samples N","Number of samples to generate") { |n| @sample = n.to_i }
   end
 rescue OML4R::MissingArgumentException => mex
@@ -66,7 +66,7 @@ SinMP.inject_metadata('samples',@sample)
 # Now collect and inject some measurements
 @sample.times do |i|
   sleep 1./@freq
-  angle = @inc * i
+  angle = Math::PI / 180 * (@inc * i) 
   SinMP.inject("label_#{angle}", angle, Math.sin(angle))
   CosMP.inject("label_#{angle}", Math.cos(angle))
 end
