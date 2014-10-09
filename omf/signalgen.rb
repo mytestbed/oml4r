@@ -48,4 +48,13 @@ end
 #     Experiment.done
 #   end
 # end
+# 
+# defGraph 'Sine' do |g|
+#   g.ms('sin').select {[ oml_ts_client.as(:ts), :value ]}
+#   g.caption "Generated Sine Signal"
+#   g.type 'line_chart3'
+#   g.mapping :x_axis => :ts, :y_axis => :value
+#   g.xaxis :legend => 'time [s]'
+#   g.yaxis :legend => 'Sine Signal', :ticks => {:format => 's'}
+# end
 
