@@ -28,7 +28,7 @@ DEF_SAMPLE = 500 # samples
 class SinMP < OML4R::MPBase
   name :sin
   param :label # default type is String
-  param :angle, :type => :int32
+  param :phase, :type => :int32
   param :value, :type => :double
 end
 

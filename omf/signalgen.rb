@@ -16,7 +16,7 @@ defApplication('signalgen') do |a|
 
   a.defMeasurement('sin') do |m|
     m.defMetric('label', :string)
-    m.defMetric('angle', :int32)
+    m.defMetric('phase', :int32)
     m.defMetric('value', :double)
   end
 
