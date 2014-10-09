@@ -1,0 +1,75 @@
+#!/usr/bin/env ruby
+#
+# Copyright (c) 2014 National ICT Australia Limited (NICTA).
+# This software may be used and distributed solely under the terms of
+# the MIT license (License).  You should find a copy of the License in
+# COPYING or at http://opensource.org/licenses/MIT. By downloading or
+# using this software you accept the terms and the liability disclaimer
+# in the License.
+#
+# ------------------
+#
+# = signalgen
+#
+# This is a simple OML4R example, which generates some signal values and 
+# sends them to an OML end-point (e.g. oml2 server)
+#
+require 'oml4r'
+
+# Some default parameter values
+APPNAME = 'signalgen'
+DEF_ODOMAIN = 'foo'
+DEF_OCOLLECT = 'file:-'
+DEF_FREQ = 2.0 # Hz
+DEF_INCREMENT = 15 # rad
+DEF_SAMPLE = 500 # samples
+
+# Define our Measurement Points
+class SinMP < OML4R::MPBase
+  name :sin
+  param :label # default type is String
+  param :phase, :type => :int32
+  param :value, :type => :double
+end
+
+class CosMP < OML4R::MPBase
+  name :cos
+  param :label # default type is String
+  param :value, :type => :double
+end
+
+# Initialise the OML4R module for our application
+# 'collect' could also be tcp:host:port
+opts = {:appName => APPNAME, :domain => DEF_ODOMAIN, :collect => DEF_OCOLLECT}
+
+begin
+  @freq = DEF_FREQ
+  @inc = DEF_INCREMENT
+  @sample = DEF_SAMPLE
+  OML4R::init(ARGV, opts) do |ap|
+    ap.banner = "A simple OML4R example, which generates some signal values."
+    ap.on("-f","--frequency F","Signal frequency [Hz]") { |f| @freq = f.to_f }
+    ap.on("-i","--increment A","Increment angle between samples [rad]") { |a| @inc = a.to_i }
+    ap.on("-n","--samples N","Number of samples to generate") { |n| @sample = n.to_i }
+  end
+rescue OML4R::MissingArgumentException => mex
+  $stderr.puts mex
+  exit
+end
+
+# Record some metadata
+puts "#{APPNAME} - Frequency: #{@freq} Hz - Increment: #{@inc} rad - Samples: #{@sample}"
+SinMP.inject_metadata('frequency',@freq)
+SinMP.inject_metadata('increment',@inc)
+SinMP.inject_metadata('samples',@sample)
+
+# Now collect and inject some measurements
+@sample.times do |i|
+  sleep 1./@freq
+  angle = @inc * i
+  SinMP.inject("label_#{angle}", angle, Math.sin(angle))
+  CosMP.inject("label_#{angle}", Math.cos(angle))
+end
+
+# Don't forget to close when you are finished
+OML4R::close()

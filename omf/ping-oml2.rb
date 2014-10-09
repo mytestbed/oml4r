@@ -9,17 +9,14 @@
 #
 defApplication('oml:app:ping', 'ping') do |a|
 
-  a.version(2, 9, 0)
-  a.shortDescription = "Wrapper around ping"
+  # a.version(2, 9, 0) # Deprecated in OMF6
   a.description = %{This application runs the system ping, parses its output and
 reports the measurements via OML
   }
-  a.path = "/usr/local/bin/ping-oml2"
+  a.binary_path = "/usr/local/bin/ping-oml2"
 
   a.defProperty('dest_addr', 'Address to ping', nil,
 		:type => :string)
-  a.defProperty('broadcast', 'Allow pinging a broadcast address', '-b',
-		:type => :boolean)
   a.defProperty('count', 'Number of times to ping', '-c',
 		:type => :integer)
   a.defProperty('interval', 'Interval between echo requests', '-i',
