@@ -28,7 +28,7 @@ end
 
 # Example use with OMF v6:
 #
-# loadOEDL('file:///Users/tiry/Work/Dev_Analysis/experiments/gec21/signalgen.rb')
+# loadOEDL('https://raw.githubusercontent.com/mytestbed/oml4r/master/omf/signalgen.rb')
 #
 # defProperty('res1', "test1", "ID of a node")
 #
