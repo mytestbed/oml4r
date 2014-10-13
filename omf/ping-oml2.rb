@@ -17,6 +17,8 @@ reports the measurements via OML
 
   a.defProperty('dest_addr', 'Address to ping', nil,
 		:type => :string)
+  a.defProperty('broadcast', 'Allow pinging a broadcast address', '-b',
+		:type => :boolean)
   a.defProperty('count', 'Number of times to ping', '-c',
 		:type => :integer)
   a.defProperty('interval', 'Interval between echo requests', '-i',
