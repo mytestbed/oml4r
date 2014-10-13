@@ -103,7 +103,7 @@ class PingWrapper
 
   def process_output(row)
     if not (parse =
-	    /^\d+ bytes from (.*):.*icmp_seq=(\d+) ttl=(\d+) time=([0-9.]+) ([a-zA-Z]+)/.match(row)
+	    /^\d+ bytes from (.*):.*icmp_[sr]eq=(\d+) ttl=(\d+) time=([0-9.]+) ([a-zA-Z]+)/.match(row)
 	   ).nil?  # One sample
        MPStat.inject(*parse[1..5])
 
